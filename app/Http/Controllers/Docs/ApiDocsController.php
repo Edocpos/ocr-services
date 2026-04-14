@@ -58,83 +58,37 @@ class ApiDocsController extends Controller
      */
     private function docsContent(): array
     {
-        return [
-            'title' => 'OCR API Documentation',
-            'subtitle' => 'Current module: IC OCR. Add future modules in this same page structure.',
-            'version' => 'v1',
-            'modules' => [
-                [
-                    'name' => 'IC OCR',
-                    'description' => 'Extract Malaysian IC fields from image and derive deterministic values from IC number.',
-                    'endpoint' => [
-                        'method' => 'POST',
-                        'path' => '/api/ocr/ic',
-                        'content_type' => 'multipart/form-data',
-                        'rate_limit' => (int) config('ocr.rate_limit_per_minute', 30) . ' requests/minute/IP',
-                    ],
-                    'request' => [
-                        [
-                            'field' => 'image',
-                            'type' => 'file',
-                            'required' => true,
-                            'notes' => 'Max ' . (int) config('ocr.max_file_size_kb', 5120) . ' KB',
-                        ],
-                    ],
-                    'response_example' => [
-                        'data' => [
-                            'extracted' => [
-                                'ic_number' => '550106-12-5821',
-                                'name' => 'ROWAN SEBASTIAN ATKINSON',
-                                'address' => 'GDW KAMPUNG BAYANGAN, 80000 KENINGAU, SABAH',
-                            ],
-                            'derived' => [
-                                'birth_date' => '1955-01-06',
-                                'gender' => 'male',
-                                'state' => 'Sabah',
-                                'district' => null,
-                            ],
-                        ],
-                        'validation' => [
-                            'status' => 'ok',
-                            'errors' => [],
-                            'warnings' => [],
-                        ],
-                        'confidence' => [
-                            'overall' => 0.95,
-                            'ic_number' => 1.0,
-                            'name' => 1.0,
-                            'address' => 1.0,
-                            'birth_date' => 1.0,
-                            'gender' => 1.0,
-                            'state' => 1.0,
-                            'district' => 1.0,
-                        ],
-                        'usage' => [
-                            'provider' => 'gemini',
-                            'unit' => 'token',
-                            'quantity' => 1018,
-                            'currency' => 'MYR',
-                            'price_per_unit_rm' => 0.0000017,
-                            'estimated_cost_rm' => 0.001733,
-                            'is_estimated' => true,
-                            'prompt_tokens' => 654,
-                            'completion_tokens' => 69,
-                            'total_tokens' => 1018,
-                        ],
-                        'meta' => [
-                            'provider' => 'gemini',
-                            'stateless' => true,
-                            'request_id' => 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-                        ],
-                    ],
-                    'errors' => [
-                        ['code' => 'low_confidence_image', 'http' => 200, 'note' => 'Image accepted but result blocked by confidence gate.'],
-                        ['code' => 'ocr_upstream_timeout', 'http' => 504, 'note' => 'Upstream provider timeout.'],
-                        ['code' => 'ocr_image_too_large_for_provider', 'http' => 422, 'note' => 'Image too large for provider processing.'],
-                        ['code' => 'ocr_processing_error', 'http' => 502, 'note' => 'Unhandled OCR pipeline failure.'],
-                    ],
-                ],
-            ],
+        /** @var array<string,mixed> $content */
+        $content = (array) config('docs.content', []);
+
+        $replacements = [
+            ':app_url' => (string) config('app.url', 'http://localhost'),
+            ':rate_limit' => (string) config('ocr.rate_limit_per_minute', 30),
+            ':max_file_size_kb' => (string) config('ocr.max_file_size_kb', 5120),
+            ':ocr_provider' => (string) config('ocr.provider', 'gemini'),
         ];
+
+        return $this->replacePlaceholders($content, $replacements);
+    }
+
+    /**
+     * @param array<string,mixed>|list<mixed>|string $value
+     * @param array<string,string> $replacements
+     * @return array<string,mixed>|list<mixed>|string
+     */
+    private function replacePlaceholders(array|string $value, array $replacements): array|string
+    {
+        if (is_string($value)) {
+            return strtr($value, $replacements);
+        }
+
+        $output = [];
+        foreach ($value as $key => $item) {
+            $output[$key] = is_array($item) || is_string($item)
+                ? $this->replacePlaceholders($item, $replacements)
+                : $item;
+        }
+
+        return $output;
     }
 }

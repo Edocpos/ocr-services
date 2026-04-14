@@ -6,8 +6,6 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "google/cloud-vision": "^2.0",
-        "laravel/sanctum": "^4.2",
         "php": "^8.3",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0"

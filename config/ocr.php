@@ -66,4 +66,7 @@ return [
     'gemini_api_key'         => env('GEMINI_API_KEY'),
     'gemini_model'           => env('OCR_GEMINI_MODEL', 'gemini-2.5-flash'),
     'gemini_timeout_seconds' => (int) env('OCR_GEMINI_TIMEOUT_SECONDS', 30),
+    'gemini_connect_timeout_seconds' => (int) env('OCR_GEMINI_CONNECT_TIMEOUT_SECONDS', env('OCR_VISION_CONNECT_TIMEOUT_SECONDS', 8)),
+    'gemini_retry_times' => (int) env('OCR_GEMINI_RETRY_TIMES', env('OCR_VISION_RETRY_TIMES', 1)),
+    'gemini_retry_sleep_ms' => (int) env('OCR_GEMINI_RETRY_SLEEP_MS', env('OCR_VISION_RETRY_SLEEP_MS', 500)),
 ];

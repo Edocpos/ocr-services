@@ -64,10 +64,10 @@ PROMPT;
 
         try {
             $response = Http::timeout($timeout)
-                ->connectTimeout((int) config('ocr.vision_connect_timeout_seconds', 8))
+                ->connectTimeout((int) config('ocr.gemini_connect_timeout_seconds', 8))
                 ->retry(
-                    (int) config('ocr.vision_retry_times', 1),
-                    (int) config('ocr.vision_retry_sleep_ms', 500)
+                    (int) config('ocr.gemini_retry_times', 1),
+                    (int) config('ocr.gemini_retry_sleep_ms', 500)
                 )
                 ->post($url, [
                     'contents' => [

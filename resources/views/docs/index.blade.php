@@ -6,96 +6,112 @@
     <title>{{ $docs['title'] }}</title>
     <style>
         :root {
-            --bg:#f6f8fc;
-            --surface:#ffffff;
-            --line:#e2e8f3;
-            --text:#182236;
-            --muted:#6c7a96;
-            --accent:#3f6fd8;
-            --badge:#eef3ff;
-            --code-bg:#0b0f1f;
-            --code-line:#202841;
-            --code-text:#d8e5ff;
-            --ok:#22b573;
+            --bg:#0b1220;
+            --surface:#111a2b;
+            --line:#24314a;
+            --text:#e7eefb;
+            --muted:#94a4c2;
+            --accent:#7ca7ff;
+            --badge:#1a2740;
+            --hover:#1a2742;
+            --active:#21345a;
+            --active-line:#35548d;
+            --code-bg:#090f1d;
+            --code-line:#24314a;
+            --code-text:#dbe7ff;
+            --ok:#32c287;
             --warn:#f2b936;
         }
         *{box-sizing:border-box}
         html{scroll-behavior:smooth}
         body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--text);background:var(--bg)}
-        .shell{max-width:1440px;margin:0 auto;padding:14px}
+        .shell{max-width:1460px;margin:0 auto;padding:20px 18px 28px}
         .topbar{
             display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
             padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+            box-shadow:0 10px 24px rgba(0,0,0,.24);
         }
         .title{margin:0;font-size:1.2rem}
         .subtitle{margin:4px 0 0;color:var(--muted);font-size:.9rem}
-        .badge{display:inline-block;margin-top:8px;padding:4px 9px;border-radius:999px;border:1px solid #d8e2f8;background:var(--badge);font-size:.75rem}
-        .btn{border:1px solid #d2ddf7;background:#f8faff;color:#274488;border-radius:8px;padding:8px 11px;cursor:pointer;font-weight:600}
+        .badge{display:inline-block;margin-top:8px;padding:4px 9px;border-radius:999px;border:1px solid #31476f;background:var(--badge);font-size:.75rem;color:#cfe0ff}
+        .btn{border:1px solid #355287;background:#182845;color:#dce8ff;border-radius:8px;padding:8px 11px;cursor:pointer;font-weight:600}
 
-        .layout{display:grid;grid-template-columns:270px 1fr 360px;gap:14px;margin-top:14px;align-items:start}
-        .main{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+        .layout{display:grid;grid-template-columns:270px 1fr 360px;gap:16px;margin-top:16px;align-items:start}
+        .main{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px 24px;box-shadow:0 10px 24px rgba(0,0,0,.2)}
         .sidebar{
-            position:sticky;top:14px;align-self:start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;
+            position:sticky;top:16px;align-self:start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;
+            box-shadow:0 10px 24px rgba(0,0,0,.2);
         }
-        .side-title{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#8a98b4;margin:8px 0}
+        .side-title{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#8395b7;margin:12px 0 10px}
         .nav-tools{display:flex;gap:8px;margin-bottom:10px}
-        .nav-tool{flex:1;border:1px solid #dae3f8;background:#f5f8ff;color:#355499;border-radius:8px;padding:6px 8px;font-size:.75rem;cursor:pointer}
-        .nav{display:flex;flex-direction:column;gap:10px}
-        .nav-group{border:1px solid #e1e8f6;background:#fbfcff;border-radius:10px;overflow:hidden}
-        .nav-module{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border:0;background:#f6f9ff;color:#1f335d;cursor:pointer}
-        .nav-module:hover{background:#edf3ff}
+        .nav-tool{flex:1;border:1px solid #32496f;background:#16253f;color:#bcd1f6;border-radius:8px;padding:6px 8px;font-size:.75rem;cursor:pointer}
+        .nav{display:flex;flex-direction:column;gap:0}
+        .nav-group{border:0;background:transparent;border-radius:0;overflow:visible;margin-bottom:10px}
+        .nav-module{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:0;background:transparent;color:#d6e5ff;cursor:pointer;font-weight:700;font-size:.95rem}
+        .nav-module:hover{background:#1a2742}
         .nav-module-left{display:flex;align-items:center;gap:8px;min-width:0}
         .nav-module-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .nav-count{font-size:.72rem;color:#35549a;border:1px solid #cddbf7;background:#edf3ff;border-radius:999px;padding:2px 7px}
+        .nav-count{font-size:.72rem;color:#bcd2ff;border:1px solid #34507e;background:#1a2b49;border-radius:999px;padding:2px 7px}
         .nav-chevron{font-size:.8rem;opacity:.9;transition:transform .15s ease}
         .nav-module[aria-expanded="false"] .nav-chevron{transform:rotate(-90deg)}
-        .nav-children{padding:8px 8px 10px}
-        .nav-children-inner{margin-left:8px;padding-left:10px;border-left:1px dashed #c3d3f3;display:flex;flex-direction:column;gap:6px}
-        .nav-link{display:block;padding:8px 9px;border:1px solid transparent;border-radius:8px;color:#2a3d66;text-decoration:none}
-        .nav-link:hover{background:#edf3ff;border-color:#ccdaf6}
-        .nav-link.module-link{font-weight:600;color:#1d3462}
-        .nav-link.endpoint-link{padding-left:10px}
-        .method{display:inline-block;font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid #bde8d4;background:#e9fff4;color:#19714a}
-        .path{display:block;color:#607399;margin-top:4px;word-break:break-all;font-size:.85rem}
+        .nav-children{padding:0}
+        .nav-children-inner{display:flex;flex-direction:column;gap:0;border-left:0}
+        .nav-link{display:flex;align-items:center;gap:8px;padding:8px 12px;border-left:3px solid transparent;color:#b8c9ea;text-decoration:none;border-radius:0;font-size:.93rem;position:relative}
+        .nav-link:hover{background:var(--hover)}
+        .nav-link.active{background:var(--active);border-left-color:#f5c01f}
+        .nav-link.module-link{font-weight:600;color:#d8e5ff;padding-left:28px}
+        .nav-link.endpoint-link{padding-left:12px}
+        .nav-icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;color:#8395b7}
+        .nav-icon svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+        .nav-link-content{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+        .nav-link-method{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
+        .method{display:inline-block;font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid #2a7857;background:#13372b;color:#9af2c7}
+        .path{display:block;color:#8ca0c5;margin-top:4px;word-break:break-all;font-size:.85rem}
 
-        .intro{background:#f7faff;border:1px solid #deE8fb;border-radius:10px;padding:12px}
-        .intro b{color:#2a4073}
+        .intro{background:#0f1a2f;border:1px solid #2b4268;border-radius:10px;padding:14px 16px;line-height:1.55}
+        .intro b{color:#cfe0ff}
 
-        .module{margin-top:14px;border-top:1px solid #e8eef9;padding-top:14px}
-        .module:first-of-type{margin-top:12px;border-top:0;padding-top:0}
-        .module h2{margin:0 0 8px;font-size:1.15rem}
+        .module{margin-top:24px;border-top:1px solid #243550;padding-top:20px}
+        .module:first-of-type{margin-top:16px;border-top:0;padding-top:0}
+        .module h2{margin:0 0 8px;font-size:1.22rem}
         .module p{margin:0;color:var(--muted)}
 
-        .endpoint{margin-top:14px;background:#fbfcff;border:1px solid #e2eaf8;border-radius:10px;padding:13px}
-        .endpoint h3{margin:0 0 10px;font-size:1.02rem}
-        .tag{display:inline-block;margin-left:6px;padding:3px 8px;border-radius:999px;font-size:.72rem;border:1px solid #d8e3fb;background:#eff4ff;color:#38569a}
+        .endpoint{margin-top:16px;background:#0e182b;border:1px solid #273b5c;border-radius:12px;padding:18px}
+        .endpoint h3{margin:0;font-size:1.08rem}
+        .tag{display:inline-block;margin-left:6px;padding:3px 8px;border-radius:999px;font-size:.72rem;border:1px solid #334f80;background:#152746;color:#b5cdfa}
+        .endpoint > * + *{margin-top:14px}
+
+        .segment{background:#111d33;border:1px solid #2a4167;border-radius:10px;padding:12px}
+        .segment-title{margin:0 0 10px;font-size:1rem;color:#d6e5ff}
 
         .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
-        .meta .card{border:1px solid #dde6f8;background:#fff;border-radius:9px;padding:10px}
-        .k{font-size:.73rem;text-transform:uppercase;letter-spacing:.08em;color:#8699c1}
+        .meta .card{border:1px solid #2b426a;background:#13203a;border-radius:9px;padding:10px}
+        .k{font-size:.73rem;text-transform:uppercase;letter-spacing:.08em;color:#8ea3cc}
         .v{margin-top:5px;font-weight:600}
 
-        h4{margin:14px 0 8px;font-size:1rem}
+        h4{margin:0;font-size:1rem}
         table{width:100%;border-collapse:collapse;font-size:.92rem}
-        th,td{padding:10px;border-bottom:1px solid #e5ecf9;text-align:left;vertical-align:top}
-        th{color:#365388}
+        th,td{padding:11px 10px;border-bottom:1px solid #2b3f62;text-align:left;vertical-align:top}
+        th{color:#b9ccf3}
         pre,code{font-family:Consolas,Monaco,monospace}
-        pre{margin:8px 0 0;padding:12px;border:1px solid #d9e3fa;background:#f7faff;border-radius:10px;overflow:auto;line-height:1.38;font-size:.86rem}
-        .resp{margin-top:10px}
+        pre{margin:8px 0 0;padding:14px;border:1px solid #2b4268;background:#0b1426;border-radius:10px;overflow:auto;line-height:1.48;font-size:.86rem;max-height:360px;color:#d9e7ff}
+        .resp{margin-top:12px}
+        .resp:first-of-type{margin-top:0}
         .resp-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-        .status{padding:3px 9px;border-radius:999px;border:1px solid #d5e2fb;background:#eef4ff;color:#305090;font-size:.77rem}
-        .copy{border:1px solid #cad9f8;background:#f2f7ff;color:#31519a;border-radius:8px;padding:5px 8px;font-size:.78rem;cursor:pointer}
+        .status{padding:3px 9px;border-radius:999px;border:1px solid #365186;background:#162747;color:#bfd3ff;font-size:.77rem}
+        .copy{border:1px solid #355185;background:#152640;color:#c9dcff;border-radius:8px;padding:5px 8px;font-size:.78rem;cursor:pointer}
 
-        .code-panel{position:sticky;top:14px;align-self:start;background:var(--code-bg);border:1px solid var(--code-line);border-radius:10px;overflow:hidden}
+        .code-panel{position:sticky;top:16px;align-self:start;background:var(--code-bg);border:1px solid var(--code-line);border-radius:12px;overflow:hidden}
         .code-tabs{display:flex;border-bottom:1px solid var(--code-line)}
         .code-tab{flex:1;text-align:center;padding:10px 8px;font-size:.78rem;font-weight:700;color:#8ea7dd;background:#0f152b;border:0;cursor:pointer}
         .code-tab.active{background:#151d38;color:#e4edff}
         .code-body{padding:12px}
         .code-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#9eb2df;font-size:.78rem;margin-bottom:10px}
-        .code-pre{margin:0;border:1px solid #243056;background:#080d1b;color:var(--code-text);border-radius:9px;padding:11px;min-height:230px}
+        .code-pre{margin:0;border:1px solid #243056;background:#080d1b;color:var(--code-text);border-radius:9px;padding:12px;min-height:260px;max-height:420px;line-height:1.45}
         .code-actions{display:flex;gap:8px;margin-top:10px}
         .code-btn{flex:1;padding:8px 10px;border-radius:8px;border:1px solid #344676;background:#18234a;color:#e8efff;cursor:pointer;font-size:.8rem}
         .code-btn.primary{background:#f5c01f;border-color:#d2a010;color:#2f2500;font-weight:800}
+        .muted-note{font-size:.83rem;color:var(--muted)}
 
         /* Mobile: content first, nav as quick links below */
         @media (max-width: 1200px){
@@ -127,9 +143,17 @@
     <div class="layout">
         <aside class="sidebar">
             <div class="side-title">Main Concepts</div>
-            <nav class="nav" style="margin-bottom:10px">
-                <a class="nav-link module-link" href="#intro-section">Introduction</a>
-                <a class="nav-link module-link" href="#auth-section">Authentication</a>
+            <nav class="nav" style="margin-bottom:14px">
+                <a class="nav-link module-link" href="#intro-section">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    </span>Introduction
+                </a>
+                <a class="nav-link module-link" href="#auth-section">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </span>Authentication
+                </a>
             </nav>
 
             <div class="side-title">Endpoints</div>
@@ -150,7 +174,6 @@
 
                         <div class="nav-children" {{ $loop->first ? '' : 'hidden' }}>
                             <div class="nav-children-inner">
-                                <a class="nav-link module-link" href="#module-{{ $module['id'] }}">Module overview</a>
                                 @foreach($module['endpoints'] as $endpoint)
                                     <a class="nav-link endpoint-link js-nav-endpoint"
                                        href="#endpoint-{{ $endpoint['id'] }}"
@@ -160,8 +183,10 @@
                                        data-title="{{ $endpoint['title'] }}"
                                        data-curl-id="curl-{{ $endpoint['id'] }}"
                                        data-response-id="resp-{{ $endpoint['id'] }}-0">
-                                        <span class="method">{{ $endpoint['method'] }}</span>
-                                        <span class="path">{{ $endpoint['path'] }}</span>
+                                        <span class="nav-link-method" style="background:{{ $endpoint['method'] === 'POST' ? '#d4a62e' : '#8fa1c9' }};color:{{ $endpoint['method'] === 'POST' ? '#2f2500' : '#fff' }}">{{ $endpoint['method'] }}</span>
+                                        <span class="nav-link-content">
+                                            <span style="font-weight:600">{{ str_replace('/api/', '', $endpoint['path']) }}</span>
+                                        </span>
                                     </a>
                                 @endforeach
                             </div>
@@ -185,6 +210,7 @@
                     @foreach($module['endpoints'] as $endpoint)
                         <article class="endpoint" id="endpoint-{{ $endpoint['id'] }}">
                             <h3>{{ $endpoint['title'] }} <span class="tag">{{ $endpoint['tag'] }}</span></h3>
+                            <div class="muted-note">Clean request/response reference for this endpoint.</div>
 
                             <div class="meta">
                                 <div class="card">
@@ -201,54 +227,62 @@
                                 </div>
                             </div>
 
-                            <h4>Request Fields</h4>
-                            <table>
-                                <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
-                                <tbody>
-                                @foreach($endpoint['request_fields'] as $row)
-                                    <tr>
-                                        <td>{{ $row['field'] }}</td>
-                                        <td>{{ $row['type'] }}</td>
-                                        <td>{{ $row['required'] ? 'Yes' : 'No' }}</td>
-                                        <td>{{ $row['notes'] }}</td>
-                                    </tr>
-                                @endforeach
-                                </tbody>
-                            </table>
+                            <section class="segment">
+                                <h4 class="segment-title">Request Fields</h4>
+                                <table>
+                                    <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead>
+                                    <tbody>
+                                    @foreach($endpoint['request_fields'] as $row)
+                                        <tr>
+                                            <td>{{ $row['field'] }}</td>
+                                            <td>{{ $row['type'] }}</td>
+                                            <td>{{ $row['required'] ? 'Yes' : 'No' }}</td>
+                                            <td>{{ $row['notes'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                            </section>
 
-                            <h4>cURL Example</h4>
-                            <div class="resp">
-                                <div class="resp-head">
-                                    <span class="status">Request</span>
-                                    <button class="copy" type="button" data-copy-id="curl-{{ $endpoint['id'] }}">Copy</button>
-                                </div>
-                                <pre id="curl-{{ $endpoint['id'] }}">{{ $endpoint['curl_example'] }}</pre>
-                            </div>
-
-                            <h4>Responses</h4>
-                            @foreach($endpoint['responses'] as $idx => $response)
+                            <section class="segment">
+                                <h4 class="segment-title">cURL Example</h4>
                                 <div class="resp">
                                     <div class="resp-head">
-                                        <span class="status">{{ $response['label'] }}</span>
-                                        <button class="copy" type="button" data-copy-id="resp-{{ $endpoint['id'] }}-{{ $idx }}">Copy</button>
+                                        <span class="status">Request</span>
+                                        <button class="copy" type="button" data-copy-id="curl-{{ $endpoint['id'] }}">Copy</button>
                                     </div>
-                                    <pre id="resp-{{ $endpoint['id'] }}-{{ $idx }}">{{ json_encode($response['json'], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <pre id="curl-{{ $endpoint['id'] }}">{{ $endpoint['curl_example'] }}</pre>
                                 </div>
-                            @endforeach
+                            </section>
 
-                            <h4>Error Codes</h4>
-                            <table>
-                                <thead><tr><th>Code</th><th>HTTP</th><th>Note</th></tr></thead>
-                                <tbody>
-                                @foreach($endpoint['error_codes'] as $err)
-                                    <tr>
-                                        <td><code>{{ $err['code'] }}</code></td>
-                                        <td>{{ $err['http'] }}</td>
-                                        <td>{{ $err['note'] }}</td>
-                                    </tr>
+                            <section class="segment">
+                                <h4 class="segment-title">Responses</h4>
+                                @foreach($endpoint['responses'] as $idx => $response)
+                                    <div class="resp">
+                                        <div class="resp-head">
+                                            <span class="status">{{ $response['label'] }}</span>
+                                            <button class="copy" type="button" data-copy-id="resp-{{ $endpoint['id'] }}-{{ $idx }}">Copy</button>
+                                        </div>
+                                        <pre id="resp-{{ $endpoint['id'] }}-{{ $idx }}">{{ json_encode($response['json'], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</pre>
+                                    </div>
                                 @endforeach
-                                </tbody>
-                            </table>
+                            </section>
+
+                            <section class="segment">
+                                <h4 class="segment-title">Error Codes</h4>
+                                <table>
+                                    <thead><tr><th>Code</th><th>HTTP</th><th>Note</th></tr></thead>
+                                    <tbody>
+                                    @foreach($endpoint['error_codes'] as $err)
+                                        <tr>
+                                            <td><code>{{ $err['code'] }}</code></td>
+                                            <td>{{ $err['http'] }}</td>
+                                            <td>{{ $err['note'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                            </section>
                         </article>
                     @endforeach
                 </section>
@@ -350,17 +384,15 @@ function updateCodePanelFromLink(link) {
 const endpointLinks = document.querySelectorAll('.js-nav-endpoint');
 endpointLinks.forEach(function (link) {
     link.addEventListener('click', function () {
-        endpointLinks.forEach(function (el) { el.style.background = ''; el.style.borderColor = ''; });
-        link.style.background = '#edf3ff';
-        link.style.borderColor = '#ccdaf6';
+        endpointLinks.forEach(function (el) { el.classList.remove('active'); });
+        link.classList.add('active');
         updateCodePanelFromLink(link);
     });
 });
 
 if (endpointLinks.length > 0) {
     updateCodePanelFromLink(endpointLinks[0]);
-    endpointLinks[0].style.background = '#edf3ff';
-    endpointLinks[0].style.borderColor = '#ccdaf6';
+    endpointLinks[0].classList.add('active');
 }
 
 document.getElementById('panel-copy').addEventListener('click', function () {

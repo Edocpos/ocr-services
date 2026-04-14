@@ -19,8 +19,9 @@ COPY . /app
 
 RUN composer install --no-dev --optimize-autoloader
 
-RUN chmod -R 775 storage bootstrap/cache || true
+RUN chmod +x /app/docker-entrypoint.sh \
+    && chmod -R 775 storage bootstrap/cache || true
 
 EXPOSE 8000
 
-CMD php artisan serve --host=0.0.0.0 --port=8000
+CMD ["/app/docker-entrypoint.sh"]

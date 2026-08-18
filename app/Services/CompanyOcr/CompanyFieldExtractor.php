@@ -22,6 +22,7 @@ class CompanyFieldExtractor
 
         $address = $this->extractAddress($fullText);
         $phone = $this->extractPhone($fullText);
+        $statutory = $this->extractStatutoryNumbers($fullText);
 
         return [
             'company_name' => $this->extractCompanyName($fullText, $lines),
@@ -40,6 +41,12 @@ class CompanyFieldExtractor
             'city' => $address['city'],
             'state' => $address['state'],
             'country' => $address['country'],
+            'lhdn_employer_no' => $statutory['lhdn_employer_no'],
+            'epf_employer_no' => $statutory['epf_employer_no'],
+            'socso_employer_no' => $statutory['socso_employer_no'],
+            'hrdc_employer_no' => $statutory['hrdc_employer_no'],
+            'zakat_employer_no' => $statutory['zakat_employer_no'],
+            'jtk_employer_no' => $statutory['jtk_employer_no'],
         ];
     }
 
@@ -81,6 +88,12 @@ class CompanyFieldExtractor
             'city' => $stringOrNull($preExtracted['city'] ?? null),
             'state' => $stringOrNull($preExtracted['state'] ?? null),
             'country' => $stringOrNull($preExtracted['country'] ?? null),
+            'lhdn_employer_no' => $stringOrNull($preExtracted['lhdn_employer_no'] ?? null),
+            'epf_employer_no' => $stringOrNull($preExtracted['epf_employer_no'] ?? null),
+            'socso_employer_no' => $stringOrNull($preExtracted['socso_employer_no'] ?? null),
+            'hrdc_employer_no' => $stringOrNull($preExtracted['hrdc_employer_no'] ?? null),
+            'zakat_employer_no' => $stringOrNull($preExtracted['zakat_employer_no'] ?? null),
+            'jtk_employer_no' => $stringOrNull($preExtracted['jtk_employer_no'] ?? null),
         ];
     }
 
@@ -143,7 +156,7 @@ class CompanyFieldExtractor
             return strtoupper($matches[1]);
         }
 
-        if (preg_match('/\b([CDEFGI][A-Z]?\d{8,12})\b/', $fullText, $matches) === 1) {
+        if (preg_match('/\b(C\d{8,12})\b/', $fullText, $matches) === 1) {
             return strtoupper($matches[1]);
         }
 
@@ -213,7 +226,7 @@ class CompanyFieldExtractor
         $block = null;
         if (preg_match('/(?:ALAMAT(?:\s*BERDAFTAR)?|REGISTERED\s*ADDRESS|ADDRESS)\s*[:.]?\s*(.+)/is', $fullText, $matches) === 1) {
             $block = trim($matches[1]);
-            $block = preg_split('/(?:\bTIN\b|\bSST\b|\bMSIC\b|\bTEL\b|\bEMAIL\b|\bPHONE\b)/i', $block)[0] ?? $block;
+            $block = preg_split('/(?:\bTIN\b|\bSST\b|\bMSIC\b|\bTEL\b|\bEMAIL\b|\bPHONE\b|\bLHDN\b|\bPCB\b|\bEPF\b|\bKWSP\b|\bSOCSO\b|\bPERKESO\b|\bHRDC\b|\bMYCOID\b|\bZAKAT\b|\bJTK\b)/i', $block)[0] ?? $block;
         }
 
         if ($block === null) {
@@ -280,5 +293,92 @@ class CompanyFieldExtractor
         }
 
         return false;
+    }
+
+    /**
+     * @return array{
+     *   lhdn_employer_no:?string,
+     *   epf_employer_no:?string,
+     *   socso_employer_no:?string,
+     *   hrdc_employer_no:?string,
+     *   zakat_employer_no:?string,
+     *   jtk_employer_no:?string
+     * }
+     */
+    private function extractStatutoryNumbers(string $fullText): array
+    {
+        return [
+            'lhdn_employer_no' => $this->extractLhdnEmployerNo($fullText),
+            'epf_employer_no' => $this->extractLabeledValue(
+                $fullText,
+                '(?:EPF|KWSP)(?:\s*\/\s*(?:EPF|KWSP))?(?:\s*EMPLOYER)?(?:\s*(?:NO|NUMBER|NOMBOR))?|KUMPULAN\s+WANG\s+SIMPANAN\s+PEKERJA|NO\.?\s*(?:MAJIKAN|EMPLOYER)(?:\s*(?:NO|NUMBER|NOMBOR))?\s*(?:EPF|KWSP)',
+                '\d{6,12}'
+            ),
+            'socso_employer_no' => $this->extractLabeledValue(
+                $fullText,
+                '(?:SOCSO|PERKESO)(?:\s*\/\s*(?:SOCSO|PERKESO|EIS))?(?:\s*EMPLOYER)?(?:\s*(?:NO|NUMBER|NOMBOR))?|EIS\s*EMPLOYER(?:\s*(?:NO|NUMBER|NOMBOR))?|NO\.?\s*(?:MAJIKAN|EMPLOYER)(?:\s*(?:NO|NUMBER|NOMBOR))?\s*(?:SOCSO|PERKESO)',
+                '\d{8,12}'
+            ),
+            'hrdc_employer_no' => $this->extractLabeledValue(
+                $fullText,
+                '(?:HRDC|HRD\s*CORP)(?:\s*MYCOID)?|MYCOID',
+                '\d{10,15}'
+            ),
+            'zakat_employer_no' => $this->extractZakatEmployerNo($fullText),
+            'jtk_employer_no' => $this->extractLabeledValue(
+                $fullText,
+                'JTK(?:\s*EMPLOYER)?(?:\s*(?:NO|NUMBER|NOMBOR))?|JABATAN\s+TENAGA\s+KERJA|NO\.?\s*(?:MAJIKAN|EMPLOYER)(?:\s*(?:NO|NUMBER|NOMBOR))?\s*JTK',
+                '\d{8,12}'
+            ),
+        ];
+    }
+
+    private function extractLhdnEmployerNo(string $fullText): ?string
+    {
+        $labeled = $this->extractLabeledValue(
+            $fullText,
+            'LHDN(?:\s*\/\s*PCB)?(?:\s*EMPLOYER)?(?:\s*(?:NO|NUMBER|NOMBOR|FILE))?|PCB(?:\s*EMPLOYER)?(?:\s*(?:NO|NUMBER|NOMBOR))?|NO\.?\s*(?:FAIL\s*)?(?:MAJIKAN|EMPLOYER)(?:\s*(?:NO|NUMBER|NOMBOR))?\s*(?:LHDN|PCB)',
+            '(?:E\s*)?\d{8,12}'
+        );
+
+        if ($labeled !== null) {
+            return $labeled;
+        }
+
+        if (preg_match('/\b(E\s*\d{8,12})\b/i', $fullText, $matches) === 1) {
+            return strtoupper(preg_replace('/\s+/', '', $matches[1]) ?? $matches[1]);
+        }
+
+        return null;
+    }
+
+    private function extractZakatEmployerNo(string $fullText): ?string
+    {
+        $labeled = $this->extractLabeledValue(
+            $fullText,
+            '(?:ZAKAT|PPZ)(?:\s*\/\s*(?:ZAKAT|PPZ))?(?:\s*EMPLOYER)?(?:\s*(?:NO|NUMBER|NOMBOR))?|LEMBAGA\s+ZAKAT|NO\.?\s*(?:MAJIKAN|EMPLOYER)(?:\s*(?:NO|NUMBER|NOMBOR))?\s*(?:ZAKAT|PPZ)',
+            '[A-Z0-9-]{4,20}'
+        );
+
+        if ($labeled !== null) {
+            return $labeled;
+        }
+
+        if (preg_match('/\b(EMP\d{4,12})\b/i', $fullText, $matches) === 1) {
+            return strtoupper($matches[1]);
+        }
+
+        return null;
+    }
+
+    private function extractLabeledValue(string $fullText, string $labelPattern, string $valuePattern): ?string
+    {
+        if (preg_match('/(?:'.$labelPattern.')\s*[:.#]*\s*('.$valuePattern.')/iu', $fullText, $matches) === 1) {
+            $value = strtoupper(preg_replace('/\s+/', '', $matches[1]) ?? $matches[1]);
+
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
     }
 }

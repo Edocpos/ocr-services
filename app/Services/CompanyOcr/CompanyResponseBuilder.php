@@ -153,6 +153,12 @@ class CompanyResponseBuilder
             'city' => $normalized['city'] ?? null,
             'state' => $normalized['state'] ?? null,
             'country' => $normalized['country'] ?? null,
+            'lhdn_employer_no' => $normalized['lhdn_employer_no'] ?? null,
+            'epf_employer_no' => $normalized['epf_employer_no'] ?? null,
+            'socso_employer_no' => $normalized['socso_employer_no'] ?? null,
+            'hrdc_employer_no' => $normalized['hrdc_employer_no'] ?? null,
+            'zakat_employer_no' => $normalized['zakat_employer_no'] ?? null,
+            'jtk_employer_no' => $normalized['jtk_employer_no'] ?? null,
         ];
     }
 
@@ -195,7 +201,16 @@ class CompanyResponseBuilder
     private function statusFromErrors(array $errors, array $extracted, array $derived): string
     {
         $hasCore = ($extracted['company_name'] ?? null) !== null && ($extracted['ssm_number'] ?? null) !== null;
+        $hasStatutory = false;
+        foreach (CompanyValueNormalizer::STATUTORY_FIELDS as $field) {
+            if (($extracted[$field] ?? null) !== null) {
+                $hasStatutory = true;
+                break;
+            }
+        }
+
         $hasAny = $hasCore
+            || $hasStatutory
             || ($extracted['tin_number'] ?? null) !== null
             || ($extracted['sst_number'] ?? null) !== null
             || ($extracted['address_line_1'] ?? null) !== null

@@ -100,6 +100,12 @@ class CompanyOcrApiTest extends TestCase
                         'city' => 'Kuala Lumpur',
                         'state' => 'Wilayah Persekutuan',
                         'country' => 'Malaysia',
+                        'lhdn_employer_no' => 'E12345678901',
+                        'epf_employer_no' => '1234567',
+                        'socso_employer_no' => '123456789012',
+                        'hrdc_employer_no' => '123456789012345',
+                        'zakat_employer_no' => 'EMP123456',
+                        'jtk_employer_no' => '123456789012',
                     ],
                 ];
             }
@@ -116,7 +122,61 @@ class CompanyOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.phone', '123456789')
             ->assertJsonPath('data.extracted.country_code', '+60')
             ->assertJsonPath('data.extracted.msic_codes.1', '62021')
+            ->assertJsonPath('data.extracted.lhdn_employer_no', 'E12345678901')
+            ->assertJsonPath('data.extracted.epf_employer_no', '1234567')
+            ->assertJsonPath('data.extracted.socso_employer_no', '123456789012')
+            ->assertJsonPath('data.extracted.hrdc_employer_no', '123456789012345')
+            ->assertJsonPath('data.extracted.zakat_employer_no', 'EMP123456')
+            ->assertJsonPath('data.extracted.jtk_employer_no', '123456789012')
             ->assertJsonPath('data.derived.company_type', 'sdn_bhd');
+    }
+
+    public function test_it_extracts_statutory_employer_numbers_without_confusing_them_with_tin(): void
+    {
+        $this->app->bind(OcrClient::class, fn () => new class implements OcrClient
+        {
+            public function detectText(string $imageContent): array
+            {
+                return [
+                    'full_text' => implode("\n", [
+                        'NAMA SYARIKAT: Template Demo Sdn Bhd',
+                        'NO. SYARIKAT: 202600000999',
+                        'TIN: C1234567890',
+                        'LHDN Employer No.: E12345678901',
+                        'EPF Employer No.: 1234567',
+                        'SOCSO / PERKESO Employer No.: 123456789012',
+                        'HRDC MyCoID: 123456789012345',
+                        'Zakat / PPZ Employer No.: EMP123456',
+                        'JTK Employer No.: 987654321098',
+                    ]),
+                    'lines' => [
+                        'NAMA SYARIKAT: Template Demo Sdn Bhd',
+                        'NO. SYARIKAT: 202600000999',
+                        'TIN: C1234567890',
+                        'LHDN Employer No.: E12345678901',
+                        'EPF Employer No.: 1234567',
+                        'SOCSO / PERKESO Employer No.: 123456789012',
+                        'HRDC MyCoID: 123456789012345',
+                        'Zakat / PPZ Employer No.: EMP123456',
+                        'JTK Employer No.: 987654321098',
+                    ],
+                    'overall_confidence' => 0.94,
+                ];
+            }
+        });
+
+        $response = $this->post('/api/ocr/company', [
+            'image' => $this->fakePngImage(),
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.extracted.tin_number', 'C1234567890')
+            ->assertJsonPath('data.extracted.lhdn_employer_no', 'E12345678901')
+            ->assertJsonPath('data.extracted.epf_employer_no', '1234567')
+            ->assertJsonPath('data.extracted.socso_employer_no', '123456789012')
+            ->assertJsonPath('data.extracted.hrdc_employer_no', '123456789012345')
+            ->assertJsonPath('data.extracted.zakat_employer_no', 'EMP123456')
+            ->assertJsonPath('data.extracted.jtk_employer_no', '987654321098');
     }
 
     public function test_it_blocks_result_when_confidence_is_low(): void
@@ -168,5 +228,48 @@ class CompanyOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.company_name', 'Template Demo Sdn Bhd')
             ->assertJsonPath('data.extracted.ssm_number', '202600000999')
             ->assertJsonPath('data.extracted.email', null);
+    }
+
+    public function test_it_accepts_pdf_documents_for_company_ocr(): void
+    {
+        $this->app->bind(OcrClient::class, fn () => new class implements OcrClient
+        {
+            public function detectText(string $imageContent): array
+            {
+                return [
+                    'full_text' => 'NAMA SYARIKAT: Template Demo Sdn Bhd',
+                    'lines' => ['NAMA SYARIKAT: Template Demo Sdn Bhd'],
+                    'overall_confidence' => 0.91,
+                    'pre_extracted' => [
+                        'company_name' => 'Template Demo Sdn Bhd',
+                        'company_type' => 'sdn_bhd',
+                        'ssm_number' => '202600000999',
+                        'tin_number' => null,
+                        'sst_number' => null,
+                        'msic_codes' => [],
+                        'phone' => null,
+                        'country_code' => null,
+                        'email' => null,
+                        'address_line_1' => null,
+                        'address_line_2' => null,
+                        'address_line_3' => null,
+                        'postcode' => null,
+                        'city' => null,
+                        'state' => null,
+                        'country' => null,
+                    ],
+                ];
+            }
+        });
+
+        $pdf = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF";
+
+        $response = $this->post('/api/ocr/company', [
+            'image' => UploadedFile::fake()->createWithContent('ssm.pdf', $pdf),
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.extracted.company_name', 'Template Demo Sdn Bhd')
+            ->assertJsonPath('data.extracted.ssm_number', '202600000999');
     }
 }

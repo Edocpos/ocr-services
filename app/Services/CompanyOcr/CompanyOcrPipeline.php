@@ -114,6 +114,12 @@ class CompanyOcrPipeline
             'city' => $this->normalizer->normalizeText($raw['city'] ?? null),
             'state' => $this->normalizer->normalizeText($raw['state'] ?? null),
             'country' => $this->normalizer->normalizeText($raw['country'] ?? null),
+            'lhdn_employer_no' => $this->normalizer->normalizeLhdnEmployerNo($raw['lhdn_employer_no'] ?? null),
+            'epf_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['epf_employer_no'] ?? null),
+            'socso_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['socso_employer_no'] ?? null),
+            'hrdc_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['hrdc_employer_no'] ?? null),
+            'zakat_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['zakat_employer_no'] ?? null),
+            'jtk_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['jtk_employer_no'] ?? null),
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Ocr;
 
 use App\Contracts\Ocr\OcrClient;
+use App\Support\OcrDocumentMime;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -59,7 +60,7 @@ PROMPT;
         }
 
         $url      = sprintf(self::API_BASE, $model) . '?key=' . $apiKey;
-        $mimeType = $this->detectMimeType($imageContent);
+        $mimeType = OcrDocumentMime::detect($imageContent);
         $base64   = base64_encode($imageContent);
 
         try {
@@ -124,6 +125,14 @@ PROMPT;
 
             if ($status === 413) {
                 throw new RuntimeException('ocr_image_too_large_for_provider: Image is too large for Gemini API.', 0, $e);
+            }
+
+            if ($status === 400 && str_contains($bodyLower, 'unable to process input image')) {
+                throw new RuntimeException(
+                    'ocr_invalid_document: Gemini could not read this file. Please upload a JPG or PNG, or a standard PDF of the document.',
+                    0,
+                    $e
+                );
             }
 
             throw new RuntimeException(
@@ -214,27 +223,5 @@ PROMPT;
                 'total_tokens' => max(0, $totalTokens),
             ],
         ];
-    }
-
-    /**
-     * Detect MIME type from image binary magic bytes.
-     */
-    private function detectMimeType(string $content): string
-    {
-        $header = substr($content, 0, 12);
-
-        if (str_starts_with($header, "\xFF\xD8\xFF")) {
-            return 'image/jpeg';
-        }
-
-        if (str_starts_with($header, "\x89PNG")) {
-            return 'image/png';
-        }
-
-        if (str_starts_with($header, 'RIFF') && substr($header, 8, 4) === 'WEBP') {
-            return 'image/webp';
-        }
-
-        return 'image/jpeg'; // safe default for unknown types
     }
 }

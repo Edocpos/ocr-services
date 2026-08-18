@@ -2,6 +2,7 @@
 
 namespace App\Services\Ocr;
 
+use App\Support\OcrDocumentMime;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -16,7 +17,7 @@ class GeminiCompanyOcrClient
     private const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent';
 
     private const PROMPT = <<<'PROMPT'
-You are reading a Malaysian company document. Typical sources include SSM certificates of incorporation, SSM company profiles (Profil Syarikat), Form 9 / Section 17, SST certificates, and LHDN TIN letters.
+You are reading a Malaysian company document. Typical sources include SSM certificates of incorporation, SSM company profiles (Profil Syarikat), Form 9 / Section 17, SST certificates, LHDN TIN or employer letters, KWSP/EPF employer registration, PERKESO/SOCSO letters, HRD Corp MyCoID letters, JTK, and Zakat/PPZ employer documents.
 
 Extract the company details and return them as a JSON object with exactly these fields:
 
@@ -37,6 +38,12 @@ Extract the company details and return them as a JSON object with exactly these 
   "city": "Kuala Lumpur",
   "state": "Wilayah Persekutuan",
   "country": "Malaysia",
+  "lhdn_employer_no": "E12345678901",
+  "epf_employer_no": "1234567",
+  "socso_employer_no": "123456789012",
+  "hrdc_employer_no": "123456789012345",
+  "zakat_employer_no": "EMP123456",
+  "jtk_employer_no": "123456789012",
   "confidence": 0.95
 }
 
@@ -44,12 +51,18 @@ Rules:
 - company_name: Legal registered name only. Ignore SSM headers, watermarks, and certificate titles.
 - company_type: One of sole_proprietor, partnership, llp, sdn_bhd, bhd. Infer from the name suffix or document wording (Sendirian Berhad / Sdn Bhd = sdn_bhd, Berhad / Bhd = bhd, LLP / PLT = llp, Perkongsian = partnership, Perusahaan Persendirian / Enterprise / Sole Prop = sole_proprietor).
 - ssm_number: Company registration / SSM number (new 12-digit format or older 6-7 digit plus letter suffix).
-- tin_number: Tax identification number (TIN / No. Cukai Pendapatan). Keep the letter prefix if present.
+- tin_number: Tax identification number (TIN / No. Cukai Pendapatan). Keep the letter prefix if present. Do not confuse TIN with the LHDN employer number.
 - sst_number: Sales and Service Tax number if printed (often W##-####-########).
 - msic_codes: Up to 3 five-digit MSIC activity codes. Return [] if none are visible.
 - phone: Local number without country code. country_code should be "+60" for Malaysian numbers.
 - email: Company email if printed.
 - Split the registered address into address_line_1, address_line_2, address_line_3. Put postcode, city, state, and country in their own fields. Do not repeat postcode/city/state inside the address lines.
+- lhdn_employer_no: LHDN / PCB employer file number (often starts with E). Not the company TIN.
+- epf_employer_no: KWSP / EPF employer number.
+- socso_employer_no: SOCSO / PERKESO employer number. If EIS uses the same number, return that value here.
+- hrdc_employer_no: HRD Corp MyCoID.
+- zakat_employer_no: Zakat / PPZ employer number.
+- jtk_employer_no: JTK (Jabatan Tenaga Kerja) employer number.
 - confidence: Overall extraction confidence from 0.0 to 1.0.
 - Return null for any field that cannot be clearly determined. Do not guess.
 - Return ONLY the JSON object.
@@ -75,7 +88,7 @@ PROMPT;
         }
 
         $url = sprintf(self::API_BASE, $model).'?key='.$apiKey;
-        $mimeType = $this->detectMimeType($imageContent);
+        $mimeType = OcrDocumentMime::detect($imageContent);
         $base64 = base64_encode($imageContent);
 
         try {
@@ -124,6 +137,12 @@ PROMPT;
                                 'city' => ['type' => 'string', 'nullable' => true],
                                 'state' => ['type' => 'string', 'nullable' => true],
                                 'country' => ['type' => 'string', 'nullable' => true],
+                                'lhdn_employer_no' => ['type' => 'string', 'nullable' => true],
+                                'epf_employer_no' => ['type' => 'string', 'nullable' => true],
+                                'socso_employer_no' => ['type' => 'string', 'nullable' => true],
+                                'hrdc_employer_no' => ['type' => 'string', 'nullable' => true],
+                                'zakat_employer_no' => ['type' => 'string', 'nullable' => true],
+                                'jtk_employer_no' => ['type' => 'string', 'nullable' => true],
                                 'confidence' => ['type' => 'number'],
                             ],
                             'required' => ['confidence', 'msic_codes'],
@@ -156,6 +175,14 @@ PROMPT;
 
             if ($status === 413) {
                 throw new RuntimeException('ocr_image_too_large_for_provider: Image is too large for Gemini API.', 0, $e);
+            }
+
+            if ($status === 400 && str_contains($bodyLower, 'unable to process input image')) {
+                throw new RuntimeException(
+                    'ocr_invalid_document: Gemini could not read this file. Please upload a JPG or PNG, or a standard PDF of the document.',
+                    0,
+                    $e
+                );
             }
 
             throw new RuntimeException(
@@ -252,6 +279,12 @@ PROMPT;
             'city' => $nullableString($extracted['city'] ?? null),
             'state' => $nullableString($extracted['state'] ?? null),
             'country' => $nullableString($extracted['country'] ?? null),
+            'lhdn_employer_no' => $nullableString($extracted['lhdn_employer_no'] ?? null),
+            'epf_employer_no' => $nullableString($extracted['epf_employer_no'] ?? null),
+            'socso_employer_no' => $nullableString($extracted['socso_employer_no'] ?? null),
+            'hrdc_employer_no' => $nullableString($extracted['hrdc_employer_no'] ?? null),
+            'zakat_employer_no' => $nullableString($extracted['zakat_employer_no'] ?? null),
+            'jtk_employer_no' => $nullableString($extracted['jtk_employer_no'] ?? null),
         ];
 
         $confidence = isset($extracted['confidence']) && is_numeric($extracted['confidence'])
@@ -268,6 +301,12 @@ PROMPT;
             $preExtracted['postcode'],
             $preExtracted['city'],
             $preExtracted['state'],
+            $preExtracted['lhdn_employer_no'],
+            $preExtracted['epf_employer_no'],
+            $preExtracted['socso_employer_no'],
+            $preExtracted['hrdc_employer_no'],
+            $preExtracted['zakat_employer_no'],
+            $preExtracted['jtk_employer_no'],
         ], static fn (?string $value): bool => $value !== null && $value !== ''));
 
         return [
@@ -281,24 +320,5 @@ PROMPT;
                 'total_tokens' => max(0, $totalTokens),
             ],
         ];
-    }
-
-    private function detectMimeType(string $content): string
-    {
-        $header = substr($content, 0, 12);
-
-        if (str_starts_with($header, "\xFF\xD8\xFF")) {
-            return 'image/jpeg';
-        }
-
-        if (str_starts_with($header, "\x89PNG")) {
-            return 'image/png';
-        }
-
-        if (str_starts_with($header, 'RIFF') && substr($header, 8, 4) === 'WEBP') {
-            return 'image/webp';
-        }
-
-        return 'image/jpeg';
     }
 }

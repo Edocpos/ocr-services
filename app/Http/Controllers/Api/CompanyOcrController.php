@@ -57,6 +57,10 @@ class CompanyOcrController extends Controller
                 $status = 422;
                 $code = 'ocr_image_too_large_for_provider';
                 $userMessage = 'Image is too large for OCR provider processing. Please upload a smaller image.';
+            } elseif (str_contains($message, 'ocr_invalid_document')) {
+                $status = 422;
+                $code = 'ocr_invalid_document';
+                $userMessage = 'This file could not be processed. Please upload a JPG or PNG photo, or a standard PDF of the document.';
             }
 
             $failure = $responseBuilder->failure($code, $userMessage, $usageEstimator->estimate(1));

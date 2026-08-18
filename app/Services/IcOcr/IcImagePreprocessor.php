@@ -2,6 +2,8 @@
 
 namespace App\Services\IcOcr;
 
+use App\Support\OcrDocumentMime;
+
 class IcImagePreprocessor
 {
     /**
@@ -15,9 +17,26 @@ class IcImagePreprocessor
             'reason' => 'none',
             'original_bytes' => strlen($content),
             'final_bytes' => strlen($content),
+            'mime' => OcrDocumentMime::detect($content),
         ];
 
         if (! $meta['enabled']) {
+            return ['content' => $content, 'meta' => $meta];
+        }
+
+        if (OcrDocumentMime::isPdf($content)) {
+            $rasterized = $this->rasterizePdf($content);
+            if ($rasterized !== null) {
+                $meta['transformed'] = true;
+                $meta['reason'] = 'pdf_rasterized';
+                $meta['mime'] = 'image/jpeg';
+                $meta['final_bytes'] = strlen($rasterized);
+
+                return ['content' => $rasterized, 'meta' => $meta];
+            }
+
+            $meta['reason'] = 'pdf_passthrough';
+
             return ['content' => $content, 'meta' => $meta];
         }
 
@@ -108,6 +127,52 @@ class IcImagePreprocessor
         } finally {
             imagedestroy($image);
         }
+    }
+
+    private function rasterizePdf(string $content): ?string
+    {
+        if (! class_exists(\Imagick::class) || ! $this->ghostscriptAvailable()) {
+            return null;
+        }
+
+        try {
+            $imagick = new \Imagick();
+            $imagick->setResolution(150, 150);
+            $imagick->readImageBlob($content);
+
+            $pageCount = min(3, max(1, $imagick->getNumberImages()));
+            $pages = new \Imagick();
+
+            for ($index = 0; $index < $pageCount; $index++) {
+                $imagick->setIteratorIndex($index);
+                $page = $imagick->getImage();
+                $page->setImageBackgroundColor('white');
+                $page->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+                $page->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+                $pages->addImage($page);
+                $page->clear();
+            }
+
+            $combined = $pages->appendImages(true);
+            $combined->setImageFormat('jpeg');
+            $combined->setImageCompressionQuality((int) config('ocr.preprocess_jpeg_quality', 80));
+            $jpeg = $combined->getImageBlob();
+
+            $combined->clear();
+            $pages->clear();
+            $imagick->clear();
+
+            return is_string($jpeg) && $jpeg !== '' ? $jpeg : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function ghostscriptAvailable(): bool
+    {
+        $binary = trim((string) @shell_exec('command -v gs 2>/dev/null'));
+
+        return $binary !== '';
     }
 
     private function encodeImage(\GdImage $image, string $mime): ?string

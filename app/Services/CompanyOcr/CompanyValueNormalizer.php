@@ -15,6 +15,18 @@ class CompanyValueNormalizer
         'bhd' => 'bhd',
     ];
 
+    /**
+     * @var array<int,string>
+     */
+    public const STATUTORY_FIELDS = [
+        'lhdn_employer_no',
+        'epf_employer_no',
+        'socso_employer_no',
+        'hrdc_employer_no',
+        'zakat_employer_no',
+        'jtk_employer_no',
+    ];
+
     public function normalizeText(?string $value): ?string
     {
         if ($value === null) {
@@ -230,6 +242,34 @@ class CompanyValueNormalizer
         $digits = preg_replace('/\D+/', '', $value) ?? '';
 
         return strlen($digits) === 5 ? $digits : null;
+    }
+
+    public function normalizeEmployerNumber(?string $value): ?string
+    {
+        $value = $this->normalizeText($value);
+        if ($value === null) {
+            return null;
+        }
+
+        $compact = strtoupper(preg_replace('/[\s._]+/', '', $value) ?? '');
+        $compact = preg_replace('/[^A-Z0-9-]/', '', $compact) ?? '';
+
+        return $compact !== '' ? $compact : null;
+    }
+
+    public function normalizeLhdnEmployerNo(?string $value): ?string
+    {
+        $compact = $this->normalizeEmployerNumber($value);
+        if ($compact === null) {
+            return null;
+        }
+
+        // Company TIN is C-prefixed; LHDN employer file numbers are not.
+        if (preg_match('/^C\d{8,12}$/', $compact) === 1) {
+            return null;
+        }
+
+        return $compact;
     }
 
     public function inferCompanyTypeFromName(?string $name): ?string

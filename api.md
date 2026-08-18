@@ -10,8 +10,10 @@ This API accepts a Malaysian IC image and returns a fixed structured JSON respon
 
 ---
 
-## Endpoint
-**POST** `/api/ocr/ic`
+## Endpoints
+**POST** `/api/ocr/ic` — Malaysian IC (MyKad)
+
+**POST** `/api/ocr/company` — Malaysian company documents (SSM certificate, company profile, SST / TIN letters)
 
 Route reference: `routes/api.php`
 
@@ -216,3 +218,24 @@ Covers:
 - valid flow
 - invalid IC birth date
 - unsupported file type
+
+---
+
+## Company OCR
+**POST** `/api/ocr/company`
+
+Same request contract as IC OCR (`image` multipart file). Returns company fields mapped for form autofill:
+
+- `data.extracted.company_name`
+- `data.extracted.company_type` (`sole_proprietor` | `partnership` | `llp` | `sdn_bhd` | `bhd`)
+- `data.extracted.ssm_number`
+- `data.extracted.tin_number`
+- `data.extracted.sst_number`
+- `data.extracted.msic_codes`
+- `data.extracted.phone` / `country_code` / `email`
+- `data.extracted.address_line_1` / `address_line_2` / `address_line_3`
+- `data.extracted.postcode` / `city` / `state` / `country`
+- `data.derived.company_type` / `city` / `state` / `country`
+
+Implementation: `CompanyOcrController`, `CompanyOcrPipeline`, `GeminiCompanyOcrClient`.
+Tests: `tests/Feature/CompanyOcrApiTest.php`.

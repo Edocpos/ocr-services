@@ -12,6 +12,27 @@ class PostcodeDistrictResolver
     private static ?array $index = null;
 
     /**
+     * @return array{state:?string,district:?string}
+     */
+    public function resolveFromPostcode(?string $postcode): array
+    {
+        $digits = preg_replace('/\D+/', '', (string) $postcode) ?? '';
+        if (! preg_match('/^\d{5}$/', $digits)) {
+            return ['state' => null, 'district' => null];
+        }
+
+        $records = $this->postcodeIndex()[$digits] ?? [];
+        if ($records === []) {
+            return ['state' => null, 'district' => null];
+        }
+
+        return [
+            'state' => $this->singleValue($records, 'state'),
+            'district' => $this->singleDistrict($records) ?? $this->singleValue($records, 'district'),
+        ];
+    }
+
+    /**
      * @return array{district:?string,source:?string}
      */
     public function resolve(?string $address, ?string $derivedState): array
@@ -76,6 +97,24 @@ class PostcodeDistrictResolver
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<int,array{state:string,district:string,location:string}>  $records
+     */
+    private function singleValue(array $records, string $key): ?string
+    {
+        $values = [];
+        foreach ($records as $row) {
+            $value = trim((string) ($row[$key] ?? ''));
+            if ($value !== '') {
+                $values[] = $value;
+            }
+        }
+
+        $unique = array_values(array_unique($values));
+
+        return count($unique) === 1 ? $unique[0] : ($unique[0] ?? null);
     }
 
     /**

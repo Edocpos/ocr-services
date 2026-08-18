@@ -34,5 +34,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) config('ocr.rate_limit_per_minute', 30))
                 ->by($request->ip() ?: 'unknown');
         });
+
+        RateLimiter::for('ocr-company', function (Request $request): Limit {
+            return Limit::perMinute((int) config('ocr.rate_limit_per_minute', 30))
+                ->by($request->ip() ?: 'unknown');
+        });
     }
 }

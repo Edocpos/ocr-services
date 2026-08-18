@@ -124,6 +124,76 @@ return [
                     ],
                 ],
             ],
+            [
+                'id' => 'company-ocr',
+                'name' => 'Company OCR',
+                'description' => 'Extract Malaysian company registration details from SSM certificates, company profiles, SST certificates, and TIN letters.',
+                'endpoints' => [
+                    [
+                        'id' => 'post-ocr-company',
+                        'title' => 'Process Company OCR',
+                        'method' => 'POST',
+                        'path' => '/api/ocr/company',
+                        'tag' => 'OCR',
+                        'content_type' => 'multipart/form-data',
+                        'rate_limit' => ':rate_limit requests/minute/IP',
+                        'request_fields' => [
+                            ['field' => 'image', 'type' => 'file', 'required' => true, 'notes' => 'Max :max_file_size_kb KB. SSM / company document image or PDF.'],
+                        ],
+                        'curl_example' => "curl --location ':app_url/api/ocr/company' \\\n+  --form 'image=@\"/absolute/path/to/ssm.jpg\"'",
+                        'responses' => [
+                            [
+                                'label' => '200 OK — Successful extraction',
+                                'status' => 200,
+                                'json' => [
+                                    'data' => [
+                                        'extracted' => [
+                                            'company_name' => 'Template Demo Sdn Bhd',
+                                            'company_type' => 'sdn_bhd',
+                                            'ssm_number' => '202600000999',
+                                            'tin_number' => 'C1234567890',
+                                            'sst_number' => 'W10-1901-32000001',
+                                            'msic_codes' => ['62010'],
+                                            'phone' => '12345678',
+                                            'country_code' => '+60',
+                                            'email' => 'company@example.com',
+                                            'address_line_1' => 'No 1, Jalan Template',
+                                            'address_line_2' => 'Tingkat 5',
+                                            'address_line_3' => null,
+                                            'postcode' => '50450',
+                                            'city' => 'Kuala Lumpur',
+                                            'state' => 'Wilayah Persekutuan',
+                                            'country' => 'Malaysia',
+                                        ],
+                                        'derived' => [
+                                            'company_type' => 'sdn_bhd',
+                                            'city' => 'Kuala Lumpur',
+                                            'state' => 'Wilayah Persekutuan',
+                                            'country' => 'Malaysia',
+                                        ],
+                                    ],
+                                    'validation' => [
+                                        'status' => 'ok',
+                                        'errors' => [],
+                                        'warnings' => [],
+                                    ],
+                                    'meta' => [
+                                        'provider' => ':ocr_provider',
+                                        'document_type' => 'company',
+                                        'stateless' => true,
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'error_codes' => [
+                            ['code' => 'low_confidence_image', 'http' => 200, 'note' => 'Image accepted but result blocked by confidence gate.'],
+                            ['code' => 'ocr_upstream_timeout', 'http' => 504, 'note' => 'Upstream provider timeout.'],
+                            ['code' => 'ocr_image_too_large_for_provider', 'http' => 422, 'note' => 'Image too large for provider processing.'],
+                            ['code' => 'ocr_processing_error', 'http' => 502, 'note' => 'Unhandled OCR pipeline failure.'],
+                        ],
+                    ],
+                ],
+            ],
         ],
     ],
 ];

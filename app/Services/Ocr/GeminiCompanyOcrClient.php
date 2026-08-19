@@ -17,7 +17,7 @@ class GeminiCompanyOcrClient
     private const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent';
 
     private const PROMPT = <<<'PROMPT'
-You are reading a Malaysian company document. Typical sources include SSM certificates of incorporation, SSM company profiles (Profil Syarikat), Form 9 / Section 17, SST certificates, LHDN TIN or employer letters, KWSP/EPF employer registration, PERKESO/SOCSO letters, HRD Corp MyCoID letters, JTK, and Zakat/PPZ employer documents.
+You are reading a Malaysian company document. Typical sources include SSM certificates of incorporation, SSM company profiles (Profil Syarikat), Form 9 / Section 17, Sabah or Sarawak local trading / business licences (lesen perniagaan tempatan), SST certificates, LHDN TIN or employer letters, KWSP/EPF employer registration, PERKESO/SOCSO letters, HRD Corp MyCoID letters, JTK, and Zakat/PPZ employer documents.
 
 Extract the company details and return them as a JSON object with exactly these fields:
 
@@ -25,6 +25,9 @@ Extract the company details and return them as a JSON object with exactly these 
   "company_name": "LEGAL COMPANY NAME",
   "company_type": "sdn_bhd",
   "ssm_number": "202301012345",
+  "local_trading_license": "DBKK-TL-12345",
+  "local_trading_license_issuer": "Dewan Bandaraya Kota Kinabalu",
+  "local_trading_license_expires_on": "2026-12-31",
   "tin_number": "C1234567890",
   "sst_number": "W10-1901-32000001",
   "msic_codes": ["62010"],
@@ -50,7 +53,10 @@ Extract the company details and return them as a JSON object with exactly these 
 Rules:
 - company_name: Legal registered name only. Ignore SSM headers, watermarks, and certificate titles.
 - company_type: One of sole_proprietor, partnership, llp, sdn_bhd, bhd. Infer from the name suffix or document wording (Sendirian Berhad / Sdn Bhd = sdn_bhd, Berhad / Bhd = bhd, LLP / PLT = llp, Perkongsian = partnership, Perusahaan Persendirian / Enterprise / Sole Prop = sole_proprietor).
-- ssm_number: Company registration / SSM number (new 12-digit format or older 6-7 digit plus letter suffix).
+- ssm_number: Company registration / SSM / BRN number (new 12-digit format or older 6-7 digit plus letter suffix). Leave null for Sabah/Sarawak documents that only show a local trading license.
+- local_trading_license: Local trading / business licence number used in Sabah or Sarawak (lesen perniagaan / lesen perniagaan tempatan). Leave null if the document is only an SSM certificate.
+- local_trading_license_issuer: Issuing local authority (e.g. DBKK, MBS, MBKS, Dewan Bandaraya, Majlis Perbandaran, Majlis Daerah).
+- local_trading_license_expires_on: Licence expiry date as YYYY-MM-DD if printed.
 - tin_number: Tax identification number (TIN / No. Cukai Pendapatan). Keep the letter prefix if present. Do not confuse TIN with the LHDN employer number.
 - sst_number: Sales and Service Tax number if printed (often W##-####-########).
 - msic_codes: Up to 3 five-digit MSIC activity codes. Return [] if none are visible.
@@ -121,6 +127,9 @@ PROMPT;
                                 'company_name' => ['type' => 'string', 'nullable' => true],
                                 'company_type' => ['type' => 'string', 'nullable' => true],
                                 'ssm_number' => ['type' => 'string', 'nullable' => true],
+                                'local_trading_license' => ['type' => 'string', 'nullable' => true],
+                                'local_trading_license_issuer' => ['type' => 'string', 'nullable' => true],
+                                'local_trading_license_expires_on' => ['type' => 'string', 'nullable' => true],
                                 'tin_number' => ['type' => 'string', 'nullable' => true],
                                 'sst_number' => ['type' => 'string', 'nullable' => true],
                                 'msic_codes' => [
@@ -266,6 +275,9 @@ PROMPT;
             'company_name' => $nullableString($extracted['company_name'] ?? null),
             'company_type' => $nullableString($extracted['company_type'] ?? null),
             'ssm_number' => $nullableString($extracted['ssm_number'] ?? null),
+            'local_trading_license' => $nullableString($extracted['local_trading_license'] ?? null),
+            'local_trading_license_issuer' => $nullableString($extracted['local_trading_license_issuer'] ?? null),
+            'local_trading_license_expires_on' => $nullableString($extracted['local_trading_license_expires_on'] ?? null),
             'tin_number' => $nullableString($extracted['tin_number'] ?? null),
             'sst_number' => $nullableString($extracted['sst_number'] ?? null),
             'msic_codes' => $msicCodes,
@@ -294,6 +306,7 @@ PROMPT;
         $fullText = implode("\n", array_filter([
             $preExtracted['company_name'],
             $preExtracted['ssm_number'],
+            $preExtracted['local_trading_license'],
             $preExtracted['tin_number'],
             $preExtracted['sst_number'],
             $preExtracted['address_line_1'],

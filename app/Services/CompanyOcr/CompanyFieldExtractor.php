@@ -28,6 +28,9 @@ class CompanyFieldExtractor
             'company_name' => $this->extractCompanyName($fullText, $lines),
             'company_type' => $this->extractCompanyType($fullText),
             'ssm_number' => $this->extractSsmNumber($fullText),
+            'local_trading_license' => $this->extractLocalTradingLicense($fullText),
+            'local_trading_license_issuer' => $this->extractLocalTradingLicenseIssuer($fullText),
+            'local_trading_license_expires_on' => $this->extractLocalTradingLicenseExpiry($fullText),
             'tin_number' => $this->extractTinNumber($fullText),
             'sst_number' => $this->extractSstNumber($fullText),
             'msic_codes' => $this->extractMsicCodes($fullText),
@@ -75,6 +78,9 @@ class CompanyFieldExtractor
             'company_name' => $stringOrNull($preExtracted['company_name'] ?? null),
             'company_type' => $stringOrNull($preExtracted['company_type'] ?? null),
             'ssm_number' => $stringOrNull($preExtracted['ssm_number'] ?? null),
+            'local_trading_license' => $stringOrNull($preExtracted['local_trading_license'] ?? null),
+            'local_trading_license_issuer' => $stringOrNull($preExtracted['local_trading_license_issuer'] ?? null),
+            'local_trading_license_expires_on' => $stringOrNull($preExtracted['local_trading_license_expires_on'] ?? null),
             'tin_number' => $stringOrNull($preExtracted['tin_number'] ?? null),
             'sst_number' => $stringOrNull($preExtracted['sst_number'] ?? null),
             'msic_codes' => $msicCodes,
@@ -145,6 +151,39 @@ class CompanyFieldExtractor
 
         if (preg_match('/\b(\d{5,7}\s*-\s*[A-Z])\b/', $fullText, $matches) === 1) {
             return $matches[1];
+        }
+
+        return null;
+    }
+
+    private function extractLocalTradingLicense(string $fullText): ?string
+    {
+        if (preg_match('/(?:LOCAL\s+TRADING\s+LICEN[CS]E|TRADING\s+LICEN[CS]E|BUSINESS\s+LICEN[CS]E|LESEN\s+(?:PERNIAGAAN|PERDAGANGAN)(?:\s+TEMPATAN)?)\s*(?:NO\.?|NUMBER|NOMBOR)\s*[:.]?\s*([A-Z0-9][A-Z0-9\/\-]{2,40})/i', $fullText, $matches) === 1) {
+            return strtoupper(trim($matches[1]));
+        }
+
+        return null;
+    }
+
+    private function extractLocalTradingLicenseIssuer(string $fullText): ?string
+    {
+        if (preg_match('/(?:ISSUING\s+(?:AUTHORITY|LOCAL\s+AUTHORITY)|PIHAK\s+BERKUASA(?:\s+TEMPATAN)?)\s*[:.]?\s*([^\r\n]+)/i', $fullText, $matches) === 1) {
+            $issuer = trim($matches[1]);
+
+            return $issuer !== '' ? $issuer : null;
+        }
+
+        if (preg_match('/\b(Dewan Bandaraya Kota Kinabalu|Dewan Bandaraya Kuching Utara|Dewan Bandaraya Kuching Selatan|Majlis Bandaraya Shah Alam|Majlis Bandaraya[^\r\n,]{0,40}|Majlis Perbandaran[^\r\n,]{0,40}|Majlis Daerah[^\r\n,]{0,40}|DBKK|MBKS|MBKU|MBS)\b/i', $fullText, $matches) === 1) {
+            return trim($matches[1]);
+        }
+
+        return null;
+    }
+
+    private function extractLocalTradingLicenseExpiry(string $fullText): ?string
+    {
+        if (preg_match('/(?:EXPIR(?:Y|ES)|VALID\s+(?:UNTIL|TILL)|TARIKH\s+LUPUT)\s*[:.]?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i', $fullText, $matches) === 1) {
+            return trim($matches[1]);
         }
 
         return null;

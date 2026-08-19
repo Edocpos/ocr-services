@@ -24,11 +24,11 @@ class CompanyResponseBuilder
             ];
         }
 
-        if (($normalized['ssm_number'] ?? null) === null) {
+        if (($normalized['ssm_number'] ?? null) === null && ($normalized['local_trading_license'] ?? null) === null) {
             $errors[] = [
                 'field' => 'ssm_number',
                 'code' => 'unreadable_or_missing',
-                'message' => 'SSM number could not be reliably extracted.',
+                'message' => 'SSM number or local trading license could not be reliably extracted.',
             ];
         }
 
@@ -140,6 +140,9 @@ class CompanyResponseBuilder
             'company_name' => $normalized['company_name'] ?? null,
             'company_type' => $normalized['company_type'] ?? null,
             'ssm_number' => $normalized['ssm_number'] ?? null,
+            'local_trading_license' => $normalized['local_trading_license'] ?? null,
+            'local_trading_license_issuer' => $normalized['local_trading_license_issuer'] ?? null,
+            'local_trading_license_expires_on' => $normalized['local_trading_license_expires_on'] ?? null,
             'tin_number' => $normalized['tin_number'] ?? null,
             'sst_number' => $normalized['sst_number'] ?? null,
             'msic_codes' => $normalized['msic_codes'] ?? [],
@@ -200,7 +203,8 @@ class CompanyResponseBuilder
      */
     private function statusFromErrors(array $errors, array $extracted, array $derived): string
     {
-        $hasCore = ($extracted['company_name'] ?? null) !== null && ($extracted['ssm_number'] ?? null) !== null;
+        $hasCore = ($extracted['company_name'] ?? null) !== null
+            && (($extracted['ssm_number'] ?? null) !== null || ($extracted['local_trading_license'] ?? null) !== null);
         $hasStatutory = false;
         foreach (CompanyValueNormalizer::STATUTORY_FIELDS as $field) {
             if (($extracted[$field] ?? null) !== null) {

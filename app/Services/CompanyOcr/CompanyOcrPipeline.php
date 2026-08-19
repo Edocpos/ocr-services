@@ -21,8 +21,7 @@ class CompanyOcrPipeline
         private readonly CompanyConfidenceEvaluator $confidenceEvaluator,
         private readonly OcrUsageEstimator $usageEstimator,
         private readonly CompanyResponseBuilder $responseBuilder,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -101,6 +100,9 @@ class CompanyOcrPipeline
             'company_name' => $this->normalizer->normalizeCompanyName($raw['company_name'] ?? null),
             'company_type' => $this->normalizer->normalizeCompanyType($raw['company_type'] ?? null),
             'ssm_number' => $this->normalizer->normalizeSsmNumber($raw['ssm_number'] ?? null),
+            'local_trading_license' => $this->normalizer->normalizeLocalTradingLicense($raw['local_trading_license'] ?? null),
+            'local_trading_license_issuer' => $this->normalizer->normalizeText($raw['local_trading_license_issuer'] ?? null),
+            'local_trading_license_expires_on' => $this->normalizer->normalizeDate($raw['local_trading_license_expires_on'] ?? null),
             'tin_number' => $this->normalizer->normalizeTinNumber($raw['tin_number'] ?? null),
             'sst_number' => $this->normalizer->normalizeSstNumber($raw['sst_number'] ?? null),
             'msic_codes' => $this->normalizer->normalizeMsicCodes(is_array($raw['msic_codes'] ?? null) ? $raw['msic_codes'] : []),

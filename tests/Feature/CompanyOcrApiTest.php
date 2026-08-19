@@ -272,4 +272,43 @@ class CompanyOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.company_name', 'Template Demo Sdn Bhd')
             ->assertJsonPath('data.extracted.ssm_number', '202600000999');
     }
+
+    public function test_it_extracts_a_local_trading_license_without_requiring_ssm(): void
+    {
+        $this->app->bind(OcrClient::class, fn () => new class implements OcrClient
+        {
+            public function detectText(string $imageContent): array
+            {
+                return [
+                    'full_text' => implode("\n", [
+                        'LESEN PERNIAGAAN TEMPATAN',
+                        'NAMA SYARIKAT: Sabah Trading Enterprise',
+                        'TRADING LICENSE NO: DBKK-TL-88991',
+                        'ISSUING AUTHORITY: Dewan Bandaraya Kota Kinabalu',
+                        'EXPIRY: 2026-12-31',
+                        'TIN: C1234567890',
+                    ]),
+                    'lines' => [
+                        'LESEN PERNIAGAAN TEMPATAN',
+                        'NAMA SYARIKAT: Sabah Trading Enterprise',
+                        'TRADING LICENSE NO: DBKK-TL-88991',
+                        'ISSUING AUTHORITY: Dewan Bandaraya Kota Kinabalu',
+                        'EXPIRY: 2026-12-31',
+                        'TIN: C1234567890',
+                    ],
+                    'overall_confidence' => 0.91,
+                ];
+            }
+        });
+
+        $response = $this->post('/api/ocr/company', [
+            'image' => $this->fakePngImage(),
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.extracted.company_name', 'Sabah Trading Enterprise')
+            ->assertJsonPath('data.extracted.local_trading_license', 'DBKK-TL-88991')
+            ->assertJsonPath('data.extracted.local_trading_license_issuer', 'Dewan Bandaraya Kota Kinabalu')
+            ->assertJsonPath('data.extracted.local_trading_license_expires_on', '2026-12-31');
+    }
 }

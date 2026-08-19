@@ -102,6 +102,43 @@ class CompanyValueNormalizer
         return $compact !== '' ? $compact : null;
     }
 
+    public function normalizeLocalTradingLicense(?string $value): ?string
+    {
+        $value = $this->normalizeText($value);
+        if ($value === null) {
+            return null;
+        }
+
+        $compact = strtoupper(preg_replace('/\s+/', '', $value) ?? '');
+        $compact = preg_replace('/[^A-Z0-9\/-]/', '', $compact) ?? '';
+
+        return $compact !== '' ? $compact : null;
+    }
+
+    public function normalizeDate(?string $value): ?string
+    {
+        $value = $this->normalizeText($value);
+        if ($value === null) {
+            return null;
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches) === 1) {
+            return $matches[0];
+        }
+
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/', $value, $matches) === 1) {
+            $day = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+            $month = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+            $year = strlen($matches[3]) === 2 ? '20'.$matches[3] : $matches[3];
+
+            if (checkdate((int) $month, (int) $day, (int) $year)) {
+                return $year.'-'.$month.'-'.$day;
+            }
+        }
+
+        return null;
+    }
+
     public function normalizeTinNumber(?string $value): ?string
     {
         $value = $this->normalizeText($value);

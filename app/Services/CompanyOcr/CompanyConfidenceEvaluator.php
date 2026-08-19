@@ -46,6 +46,7 @@ class CompanyConfidenceEvaluator
 
         $hasUsableField = ($normalized['company_name'] ?? null) !== null
             || ($normalized['ssm_number'] ?? null) !== null
+            || ($normalized['local_trading_license'] ?? null) !== null
             || ($normalized['tin_number'] ?? null) !== null
             || ($normalized['address_line_1'] ?? null) !== null
             || ($normalized['lhdn_employer_no'] ?? null) !== null

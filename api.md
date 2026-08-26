@@ -293,7 +293,7 @@ Success (HTTP 200):
 }
 ```
 
-Pipeline: embedded PDF text first, then rasterize + OCR fallback. SOCSO requires `ACR` references; EIS requires `ECR`. Cross-scheme uploads return HTTP 422 `receipt_scheme_mismatch`. EPF, PCB and HRDC extract common fields and set `requires_manual_review` until scheme samples exist.
+Pipeline: embedded PDF text first, then rasterize + OCR fallback. SOCSO requires `ACR` references; EIS requires `ECR`. Cross-scheme uploads return HTTP 422 `receipt_scheme_mismatch`. PCB parses LHDN e-PCB acceptance letters (CP 502R), payment confirmation slips, and CP 6A official receipts; contribution period comes from Month/Year, BULAN/TAHUN TAKSIRAN, or the amount-month-year row, never from the payment date. EPF and HRDC extract common fields and set `requires_manual_review` until scheme samples exist.
 
 Errors are always JSON:
 

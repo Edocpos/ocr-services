@@ -331,7 +331,26 @@ class StatutoryReceiptOcrApiTest extends TestCase
         })->atLeast()->once();
     }
 
-    public function test_epf_pcb_and_hrdc_extract_common_fields_and_require_review(): void
+    public function test_it_does_not_log_pcb_identifiers_or_email(): void
+    {
+        Log::spy();
+
+        $this->post('/api/ocr/pcb', [
+            'image' => $this->pdfFixture('pcb-confirmation-slip.pdf'),
+            'scheme' => 'pcb',
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context): bool {
+            $encoded = json_encode($context) ?: '';
+
+            return ! str_contains($encoded, 'yihsien86')
+                && ! str_contains($encoded, 'EM2601419060')
+                && ! str_contains($encoded, 'E9618231011')
+                && ! str_contains($encoded, '97101269909453');
+        })->atLeast()->once();
+    }
+
+    public function test_epf_and_hrdc_extract_common_fields_and_require_review(): void
     {
         $this->bindOcrText(implode("\n", [
             'No. Resit : KW-1001',
@@ -341,7 +360,7 @@ class StatutoryReceiptOcrApiTest extends TestCase
             'Jumlah Bayaran : RM125.60',
         ]));
 
-        foreach (['epf', 'pcb', 'hrdc'] as $scheme) {
+        foreach (['epf', 'hrdc'] as $scheme) {
             $this->post('/api/ocr/'.$scheme, [
                 'image' => $this->png(),
                 'scheme' => $scheme,
@@ -352,6 +371,82 @@ class StatutoryReceiptOcrApiTest extends TestCase
                 ->assertJsonPath('meta.scheme', $scheme)
                 ->assertJsonPath('meta.requires_manual_review', true);
         }
+    }
+
+    public function test_it_extracts_pcb_acceptance_letter_sample(): void
+    {
+        $this->post('/api/ocr/pcb', [
+            'image' => $this->pdfFixture('pcb-acceptance-letter.pdf'),
+            'scheme' => 'pcb',
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.extracted.receipt_number', '20-EM2601419060')
+            ->assertJsonPath('data.extracted.payment_date', '13/08/2026')
+            ->assertJsonPath('data.extracted.contribution_period', '07/2026')
+            ->assertJsonPath('data.extracted.contribution_reference', '97101269909453')
+            ->assertJsonPath('data.extracted.employer_number', 'E9618231011')
+            ->assertJsonPath('data.extracted.amount', 1663)
+            ->assertJsonPath('meta.scheme', 'pcb')
+            ->assertJsonPath('meta.requires_manual_review', false)
+            ->assertJsonPath('meta.source', 'embedded_text');
+    }
+
+    public function test_it_extracts_pcb_confirmation_slip_sample(): void
+    {
+        $this->post('/api/ocr/pcb', [
+            'image' => $this->pdfFixture('pcb-confirmation-slip.pdf'),
+            'scheme' => 'pcb',
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.extracted.receipt_number', 'EM2601419060')
+            ->assertJsonPath('data.extracted.transaction_id', '2608130845060963')
+            ->assertJsonPath('data.extracted.employer_number', 'E9618231011')
+            ->assertJsonPath('data.extracted.contribution_period', '07/2026')
+            ->assertJsonPath('data.extracted.contribution_reference', '97101269909453')
+            ->assertJsonPath('data.extracted.amount', 1663)
+            ->assertJsonPath('meta.requires_manual_review', false);
+    }
+
+    public function test_it_extracts_pcb_official_receipt_sample(): void
+    {
+        $this->post('/api/ocr/pcb', [
+            'image' => $this->pdfFixture('pcb-official-receipt.pdf'),
+            'scheme' => 'pcb',
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.extracted.receipt_number', '20-30039735355')
+            ->assertJsonPath('data.extracted.employer_number', 'E9623455102')
+            ->assertJsonPath('data.extracted.transaction_id', 'EM2601396751')
+            ->assertJsonPath('data.extracted.contribution_period', '07/2026')
+            ->assertJsonPath('data.extracted.contribution_reference', '1626023469013007')
+            ->assertJsonPath('data.extracted.employer_name', 'SUREBEST SEAFOOD ENTERPRISE PL T')
+            ->assertJsonPath('data.extracted.amount', 1120.4)
+            ->assertJsonPath('data.extracted.bank', null)
+            ->assertJsonPath('meta.requires_manual_review', false);
+    }
+
+    public function test_it_rejects_a_pcb_receipt_on_the_socso_endpoint(): void
+    {
+        $this->post('/api/ocr/socso', [
+            'image' => $this->pdfFixture('pcb-acceptance-letter.pdf'),
+            'scheme' => 'socso',
+        ], ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error_code', 'receipt_scheme_mismatch')
+            ->assertJsonPath('data.detected_scheme', 'pcb')
+            ->assertJsonPath('data.expected_scheme', 'socso');
+    }
+
+    public function test_it_rejects_a_socso_receipt_on_the_pcb_endpoint(): void
+    {
+        $this->post('/api/ocr/pcb', [
+            'image' => $this->pdfFixture('socso.pdf'),
+            'scheme' => 'pcb',
+        ], ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonPath('error_code', 'receipt_scheme_mismatch')
+            ->assertJsonPath('data.detected_scheme', 'socso')
+            ->assertJsonPath('data.expected_scheme', 'pcb');
     }
 
     public function test_it_keeps_jumlah_bayaran_when_socso_includes_skbbk(): void
@@ -377,6 +472,15 @@ class StatutoryReceiptOcrApiTest extends TestCase
 
     public function test_temporary_upload_is_deleted_after_processing(): void
     {
+        $directory = storage_path('app/private/ocr-tmp');
+        if (is_dir($directory)) {
+            foreach (glob($directory.'/*') ?: [] as $path) {
+                if (! str_ends_with($path, '.gitignore')) {
+                    @unlink($path);
+                }
+            }
+        }
+
         $this->post('/api/ocr/eis', [
             'image' => $this->pdfFixture('eis.pdf'),
             'scheme' => 'eis',

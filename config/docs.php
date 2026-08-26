@@ -200,7 +200,7 @@ return [
             [
                 'id' => 'statutory-ocr',
                 'name' => 'Statutory receipt OCR',
-                'description' => 'Extract Malaysian statutory payment-receipt fields for EPF, SOCSO, EIS, PCB and HRDC. Each scheme has a dedicated endpoint and parser.',
+                'description' => 'Extract Malaysian statutory payment-receipt fields for EPF, SOCSO, EIS, PCB and HRDC. Each scheme has a dedicated endpoint and parser. PCB supports LHDN e-PCB letters, confirmation slips, and CP 6A official receipts.',
                 'endpoints' => [
                     [
                         'id' => 'post-ocr-statutory',

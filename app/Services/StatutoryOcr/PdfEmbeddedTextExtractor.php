@@ -2,6 +2,10 @@
 
 namespace App\Services\StatutoryOcr;
 
+use Smalot\PdfParser\Config as PdfParserConfig;
+use Smalot\PdfParser\Parser as PdfParser;
+use Throwable;
+
 class PdfEmbeddedTextExtractor
 {
     public function extract(string $pdfContent): ?string
@@ -10,6 +14,77 @@ class PdfEmbeddedTextExtractor
             return null;
         }
 
+        $smalot = $this->extractWithSmalot($pdfContent);
+        if ($this->isReliable($smalot)) {
+            return $smalot;
+        }
+
+        $simple = $this->extractSimple($pdfContent);
+        if ($this->isReliable($simple)) {
+            return $simple;
+        }
+
+        foreach ([$smalot, $simple] as $candidate) {
+            if ($candidate !== null && trim($candidate) !== '') {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    public function isReliable(?string $text): bool
+    {
+        return $this->reliabilityScore($text) >= 2;
+    }
+
+    public function reliabilityScore(?string $text): int
+    {
+        if ($text === null) {
+            return 0;
+        }
+
+        $normalized = trim($text);
+        if (mb_strlen($normalized) < 40) {
+            return 0;
+        }
+
+        $score = 0;
+        foreach ([
+            'Resit', 'Majikan', 'Bayaran', 'Jumlah', 'Receipt', 'Employer', 'Amount',
+            'LHDN', 'HASIL', 'e-PCB', 'POTONGAN CUKAI', 'PCB Account', 'TIN',
+        ] as $label) {
+            if (stripos($normalized, $label) !== false) {
+                $score++;
+            }
+        }
+
+        if (preg_match('/\b(?:ACR|ECR)[A-Z0-9]+/i', $normalized) === 1) {
+            $score += 2;
+        }
+
+        return $score;
+    }
+
+    private function extractWithSmalot(string $pdfContent): ?string
+    {
+        try {
+            $config = new PdfParserConfig;
+            $config->setRetainImageContent(false);
+            $config->setDecodeMemoryLimit(2 * 1024 * 1024);
+
+            $text = (new PdfParser([], $config))->parseContent($pdfContent)->getText();
+        } catch (Throwable) {
+            return null;
+        }
+
+        $text = trim(preg_replace("/[ \t]+/u", ' ', str_replace("\u{00A0}", ' ', $text)) ?? $text);
+
+        return $text !== '' ? $text : null;
+    }
+
+    private function extractSimple(string $pdfContent): ?string
+    {
         $tokens = [];
 
         foreach ($this->inflateStreams($pdfContent) as $stream) {
@@ -27,28 +102,6 @@ class PdfEmbeddedTextExtractor
         return $text !== '' ? $text : null;
     }
 
-    public function isReliable(?string $text): bool
-    {
-        if ($text === null) {
-            return false;
-        }
-
-        $normalized = trim($text);
-
-        if (mb_strlen($normalized) < 40) {
-            return false;
-        }
-
-        $labelHits = 0;
-        foreach (['Resit', 'Majikan', 'Bayaran', 'Jumlah', 'Receipt', 'Employer', 'Amount'] as $label) {
-            if (stripos($normalized, $label) !== false) {
-                $labelHits++;
-            }
-        }
-
-        return $labelHits >= 2 || preg_match('/\b(?:ACR|ECR)[A-Z0-9]+/i', $normalized) === 1;
-    }
-
     /**
      * @return list<string>
      */
@@ -61,6 +114,9 @@ class PdfEmbeddedTextExtractor
         }
 
         foreach ($matches[1] as $raw) {
+            if (strlen($raw) > 64 * 1024) {
+                continue;
+            }
             $decoded = @gzuncompress($raw);
 
             if ($decoded === false) {

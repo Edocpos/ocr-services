@@ -35,6 +35,8 @@ class ReceiptValueNormalizerTest extends TestCase
 
         $this->assertSame('eis', $detector->detect('Caruman Bulanan(ECR082260127652-07/2026)'));
         $this->assertSame('socso', $detector->detect('Caruman Bulanan(ACR082260152714-07/2026)'));
+        $this->assertSame('pcb', $detector->detect('Payment Type : e-PCB PCB Account No. : 97101269909453'));
+        $this->assertSame('pcb', $detector->detect('092 - POTONGAN CUKAI BULANAN (PCB)'));
         $this->assertNull($detector->detect('KWSP contribution receipt July 2026'));
     }
 }

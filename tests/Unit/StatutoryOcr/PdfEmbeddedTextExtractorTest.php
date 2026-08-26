@@ -6,6 +6,7 @@ use App\Services\StatutoryOcr\LabeledReceiptReader;
 use App\Services\StatutoryOcr\PdfEmbeddedTextExtractor;
 use App\Services\StatutoryOcr\ReceiptValueNormalizer;
 use App\Services\StatutoryOcr\SchemeDetector;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PdfEmbeddedTextExtractorTest extends TestCase
@@ -54,5 +55,61 @@ class PdfEmbeddedTextExtractorTest extends TestCase
         $this->assertSame('2608061236580909', $fields['transaction_id']);
         $this->assertSame(318.45, $fields['amount']);
         $this->assertSame('socso', (new SchemeDetector)->detect((string) $text));
+    }
+
+    #[DataProvider('pcbFixtures')]
+    public function test_it_extracts_pcb_sample_fields(string $fixture, array $expected): void
+    {
+        $text = (new PdfEmbeddedTextExtractor)->extract(
+            (string) file_get_contents(base_path('tests/Fixtures/receipts/'.$fixture))
+        );
+        $this->assertNotNull($text);
+        $this->assertSame('pcb', (new SchemeDetector)->detect($text));
+
+        $fields = (new LabeledReceiptReader(new ReceiptValueNormalizer))->read($text);
+
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $fields[$key], $fixture.' '.$key);
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function pcbFixtures(): array
+    {
+        return [
+            'acceptance letter' => ['pcb-acceptance-letter.pdf', [
+                'receipt_number' => '20-EM2601419060',
+                'payment_date' => '13/08/2026',
+                'contribution_period' => '07/2026',
+                'contribution_reference' => '97101269909453',
+                'employer_number' => 'E9618231011',
+                'amount' => 1663.0,
+                'payment_description' => 'e-PCB',
+            ]],
+            'confirmation slip' => ['pcb-confirmation-slip.pdf', [
+                'receipt_number' => 'EM2601419060',
+                'payment_date' => '13/08/2026',
+                'contribution_period' => '07/2026',
+                'contribution_reference' => '97101269909453',
+                'employer_number' => 'E9618231011',
+                'employer_name' => 'TECHFUSION ENGINEERING SDN. BHD.',
+                'transaction_id' => '2608130845060963',
+                'amount' => 1663.0,
+                'payment_description' => '092 - POTONGAN CUKAI BULANAN (PCB)',
+            ]],
+            'official receipt' => ['pcb-official-receipt.pdf', [
+                'receipt_number' => '20-30039735355',
+                'payment_date' => '11/08/2026',
+                'contribution_period' => '07/2026',
+                'contribution_reference' => '1626023469013007',
+                'employer_number' => 'E9623455102',
+                'employer_name' => 'SUREBEST SEAFOOD ENTERPRISE PL T',
+                'transaction_id' => 'EM2601396751',
+                'bank' => null,
+                'amount' => 1120.4,
+            ]],
+        ];
     }
 }

@@ -19,8 +19,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(OcrClient::class, function (): OcrClient {
             return match ((string) config('ocr.provider', 'google_vision')) {
-                'gemini' => new GeminiIcOcrClient(),
-                default  => new GoogleVisionOcrClient(),
+                'gemini' => new GeminiIcOcrClient,
+                default => new GoogleVisionOcrClient,
             };
         });
     }
@@ -37,6 +37,11 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('ocr-company', function (Request $request): Limit {
             return Limit::perMinute((int) config('ocr.rate_limit_per_minute', 30))
+                ->by($request->ip() ?: 'unknown');
+        });
+
+        RateLimiter::for('ocr-statutory', function (Request $request): Limit {
+            return Limit::perMinute((int) config('ocr.statutory_rate_limit_per_minute', config('ocr.rate_limit_per_minute', 30)))
                 ->by($request->ip() ?: 'unknown');
         });
     }

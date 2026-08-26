@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="OCR_PROVIDER" value="google_vision"/>
+        <env name="OCR_STATUTORY_MAX_FILE_SIZE_KB" value="10240"/>
+        <env name="OCR_STATUTORY_RATE_LIMIT_PER_MINUTE" value="30"/>
     </php>
 </phpunit>

@@ -241,3 +241,68 @@ Same request contract as IC OCR (`image` multipart file). Returns company fields
 
 Implementation: `CompanyOcrController`, `CompanyOcrPipeline`, `GeminiCompanyOcrClient`.
 Tests: `tests/Feature/CompanyOcrApiTest.php`.
+
+---
+
+## Statutory receipt OCR
+Dedicated endpoints for payroll payment receipts. Each scheme has its own parser.
+
+| Method | Path |
+|---|---|
+| POST | `/api/ocr/epf` |
+| POST | `/api/ocr/socso` |
+| POST | `/api/ocr/eis` |
+| POST | `/api/ocr/pcb` |
+| POST | `/api/ocr/hrdc` |
+
+Request: `multipart/form-data`
+
+| Field | Required | Rules |
+|---|---|---|
+| `image` | Yes | PDF, JPG, JPEG, PNG or WebP. Max 10 MB. MIME is verified from file contents, not the filename. |
+| `scheme` | Yes | Must match the endpoint (`epf`, `socso`, `eis`, `pcb`, `hrdc`). |
+
+Success (HTTP 200):
+
+```json
+{
+  "data": {
+    "extracted": {
+      "receipt_number": "20260004540969",
+      "payment_date": "06/08/2026",
+      "contribution_period": "07/2026",
+      "contribution_reference": "ACR082260152714",
+      "employer_number": "F9702103813F",
+      "employer_name": "EDOCPOS SDN . BHD.",
+      "transaction_id": "2608061236580909",
+      "bank": "Public Bank Berhad",
+      "amount": 318.45,
+      "payment_description": "1.Caruman Bulanan(ACR082260152714-07/2026)(RM318.45) 2.Tunggakan Caruman- 3.Kekurangan Caruman-"
+    }
+  },
+  "meta": {
+    "scheme": "socso",
+    "confidence": 0.98,
+    "field_confidence": {
+      "receipt_number": 0.99,
+      "amount": 0.99
+    },
+    "requires_manual_review": false,
+    "warnings": []
+  }
+}
+```
+
+Pipeline: embedded PDF text first, then rasterize + OCR fallback. SOCSO requires `ACR` references; EIS requires `ECR`. Cross-scheme uploads return HTTP 422 `receipt_scheme_mismatch`. EPF, PCB and HRDC extract common fields and set `requires_manual_review` until scheme samples exist.
+
+Errors are always JSON:
+
+- 422 validation: `{ "message": "The uploaded receipt is invalid.", "errors": { "image": ["..."] } }`
+- 422 `receipt_scheme_mismatch`
+- 422 `receipt_requires_manual_review`
+- 429 `rate_limited`
+- 503 `ocr_unavailable`
+
+Rate limit: `throttle:ocr-statutory` (`OCR_STATUTORY_RATE_LIMIT_PER_MINUTE`).
+Tests: `tests/Feature/StatutoryReceiptOcrApiTest.php`.
+

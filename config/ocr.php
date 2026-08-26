@@ -6,6 +6,14 @@ return [
 
     'max_file_size_kb' => (int) env('OCR_MAX_FILE_SIZE_KB', 5120),
 
+    'statutory_max_file_size_kb' => (int) env('OCR_STATUTORY_MAX_FILE_SIZE_KB', 10240),
+
+    'statutory_rate_limit_per_minute' => (int) env('OCR_STATUTORY_RATE_LIMIT_PER_MINUTE', env('OCR_RATE_LIMIT_PER_MINUTE', 30)),
+
+    'statutory_manual_review_min_confidence' => (float) env('OCR_STATUTORY_MANUAL_REVIEW_MIN_CONFIDENCE', 0.75),
+
+    'statutory_unreadable_min_confidence' => (float) env('OCR_STATUTORY_UNREADABLE_MIN_CONFIDENCE', 0.40),
+
     'allow_webp' => filter_var(env('OCR_ALLOW_WEBP', false), FILTER_VALIDATE_BOOL),
 
     'rate_limit_per_minute' => (int) env('OCR_RATE_LIMIT_PER_MINUTE', 30),
@@ -63,8 +71,8 @@ return [
     'usd_to_myr_rate' => (float) env('OCR_USD_TO_MYR_RATE', 0.00),
 
     // Gemini Vision provider config
-    'gemini_api_key'         => env('GEMINI_API_KEY'),
-    'gemini_model'           => env('OCR_GEMINI_MODEL', 'gemini-2.5-flash'),
+    'gemini_api_key' => env('GEMINI_API_KEY'),
+    'gemini_model' => env('OCR_GEMINI_MODEL', 'gemini-2.5-flash'),
     'gemini_timeout_seconds' => (int) env('OCR_GEMINI_TIMEOUT_SECONDS', 30),
     'gemini_connect_timeout_seconds' => (int) env('OCR_GEMINI_CONNECT_TIMEOUT_SECONDS', env('OCR_VISION_CONNECT_TIMEOUT_SECONDS', 8)),
     'gemini_retry_times' => (int) env('OCR_GEMINI_RETRY_TIMES', env('OCR_VISION_RETRY_TIMES', 1)),

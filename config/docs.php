@@ -197,6 +197,77 @@ return [
                     ],
                 ],
             ],
+            [
+                'id' => 'statutory-ocr',
+                'name' => 'Statutory receipt OCR',
+                'description' => 'Extract Malaysian statutory payment-receipt fields for EPF, SOCSO, EIS, PCB and HRDC. Each scheme has a dedicated endpoint and parser.',
+                'endpoints' => [
+                    [
+                        'id' => 'post-ocr-statutory',
+                        'title' => 'Process statutory receipt OCR',
+                        'method' => 'POST',
+                        'path' => '/api/ocr/{epf|socso|eis|pcb|hrdc}',
+                        'tag' => 'OCR',
+                        'content_type' => 'multipart/form-data',
+                        'rate_limit' => ':rate_limit requests/minute/IP',
+                        'request_fields' => [
+                            ['field' => 'image', 'type' => 'file', 'required' => true, 'notes' => 'PDF, JPG, PNG or WebP. Max 10 MB. MIME is verified from contents.'],
+                            ['field' => 'scheme', 'type' => 'string', 'required' => true, 'notes' => 'Must match the endpoint scheme.'],
+                        ],
+                        'curl_example' => "curl --location ':app_url/api/ocr/socso' \\\n  --form 'image=@\"/absolute/path/to/receipt.pdf\"' \\\n  --form 'scheme=\"socso\"'",
+                        'responses' => [
+                            [
+                                'label' => '200 OK — Successful extraction',
+                                'status' => 200,
+                                'json' => [
+                                    'data' => [
+                                        'extracted' => [
+                                            'receipt_number' => '20260004540969',
+                                            'payment_date' => '06/08/2026',
+                                            'contribution_period' => '07/2026',
+                                            'contribution_reference' => 'ACR082260152714',
+                                            'employer_number' => 'F9702103813F',
+                                            'employer_name' => 'EDOCPOS SDN . BHD.',
+                                            'transaction_id' => '2608061236580909',
+                                            'bank' => 'Public Bank Berhad',
+                                            'amount' => 318.45,
+                                            'payment_description' => '1.Caruman Bulanan(ACR082260152714-07/2026)(RM318.45)',
+                                        ],
+                                    ],
+                                    'meta' => [
+                                        'scheme' => 'socso',
+                                        'confidence' => 0.98,
+                                        'field_confidence' => [
+                                            'receipt_number' => 0.99,
+                                            'amount' => 0.99,
+                                        ],
+                                        'requires_manual_review' => false,
+                                        'warnings' => [],
+                                    ],
+                                ],
+                            ],
+                            [
+                                'label' => '422 — Scheme mismatch',
+                                'status' => 422,
+                                'json' => [
+                                    'message' => 'This appears to be an EIS receipt, not a SOCSO receipt.',
+                                    'error_code' => 'receipt_scheme_mismatch',
+                                    'data' => [
+                                        'detected_scheme' => 'eis',
+                                        'expected_scheme' => 'socso',
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'error_codes' => [
+                            ['code' => 'receipt_scheme_mismatch', 'http' => 422, 'note' => 'The file is a different statutory scheme than the endpoint.'],
+                            ['code' => 'receipt_requires_manual_review', 'http' => 422, 'note' => 'The receipt could not be read reliably.'],
+                            ['code' => 'rate_limited', 'http' => 429, 'note' => 'Too many statutory OCR requests from this IP.'],
+                            ['code' => 'ocr_unavailable', 'http' => 503, 'note' => 'Temporary OCR provider or processing failure.'],
+                        ],
+                    ],
+                ],
+            ],
         ],
     ],
 ];

@@ -306,3 +306,42 @@ Errors are always JSON:
 Rate limit: `throttle:ocr-statutory` (`OCR_STATUTORY_RATE_LIMIT_PER_MINUTE`).
 Tests: `tests/Feature/StatutoryReceiptOcrApiTest.php`.
 
+---
+
+## Accounting classification OCR
+
+**POST** `/api/ocr/accounting`
+
+Classifies one logical accounting transaction as a `payment_voucher`, `receipt_voucher`, or `general_voucher`, and returns a balanced journal proposal. Gemini is always used for this endpoint; entries are never posted automatically.
+
+Request: `multipart/form-data`
+
+| Field | Required | Rules |
+|---|---:|---|
+| `document` | Yes | PDF, JPG, PNG or WebP. Max 10 MB. One logical transaction. |
+| `accounts` | Yes | JSON array of 1–500 accounts with unique `code`, `name`, `type`, `subtype`, and optional `aliases`. |
+
+Account types are `asset`, `liability`, `equity`, `revenue`, and `expense`. Subtypes are `cash`, `bank`, `accounts_receivable`, `accounts_payable`, `input_tax`, `output_tax`, and `other`.
+
+```bash
+curl --location 'http://127.0.0.1:8000/api/ocr/accounting' \
+  --form 'document=@"/absolute/path/to/voucher.pdf"' \
+  --form 'accounts=[{"code":"BS/CA/CNB/BANK/10000","name":"Maybank","type":"asset","subtype":"bank","aliases":[]},{"code":"PL/OE/OEX/OPEX/10000","name":"Office Expenses","type":"expense","subtype":"other","aliases":[]}]'
+```
+
+The response includes extracted transaction fields, voucher classification, journal lines, debit/credit totals, confidence, usage, validation issues, `is_postable`, and `requires_manual_review`. Each journal line includes a reason and document evidence.
+
+If no submitted account is suitable, the line returns `match_status: new_account_recommended` and a provisional five-level code such as `PL/OE/OEX/OPEX/10003`. Normal recommendations use the `10000–89999` range, increment within the category without reusing gaps, and require account creation plus manual review. The OCR service does not create the account.
+
+Clean MYR proposals may return `is_postable: true`, but remain proposals requiring user approval. Recommended/unmatched accounts, foreign currency, low confidence, inconsistent totals, or imbalance set `requires_manual_review: true`.
+
+Errors:
+
+- 422 invalid request, unsupported MIME, more than 500 accounts, or multiple unrelated transactions
+- 429 rate limited
+- 502 configured Gemini model unavailable
+- 504 Gemini timeout
+- 503 temporary OCR failure
+
+Rate limit: `throttle:ocr-accounting` (`OCR_ACCOUNTING_RATE_LIMIT_PER_MINUTE`).
+Tests: `tests/Feature/AccountingOcrApiTest.php`.

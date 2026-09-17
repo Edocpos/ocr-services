@@ -31,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json([
-                'message' => 'Too many receipt OCR requests. Please try again later.',
+                'message' => 'Too many OCR requests. Please try again later.',
                 'error_code' => 'rate_limited',
             ], 429);
         });

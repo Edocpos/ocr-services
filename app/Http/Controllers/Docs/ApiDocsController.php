@@ -64,6 +64,7 @@ class ApiDocsController extends Controller
         $replacements = [
             ':app_url' => (string) config('app.url', 'http://localhost'),
             ':rate_limit' => (string) config('ocr.rate_limit_per_minute', 30),
+            ':accounting_rate_limit' => (string) config('ocr.accounting_rate_limit_per_minute', 30),
             ':max_file_size_kb' => (string) config('ocr.max_file_size_kb', 5120),
             ':ocr_provider' => (string) config('ocr.provider', 'gemini'),
         ];
@@ -72,8 +73,8 @@ class ApiDocsController extends Controller
     }
 
     /**
-     * @param array<string,mixed>|list<mixed>|string $value
-     * @param array<string,string> $replacements
+     * @param  array<string,mixed>|list<mixed>|string  $value
+     * @param  array<string,string>  $replacements
      * @return array<string,mixed>|list<mixed>|string
      */
     private function replacePlaceholders(array|string $value, array $replacements): array|string

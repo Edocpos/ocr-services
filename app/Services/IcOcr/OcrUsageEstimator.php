@@ -7,10 +7,10 @@ class OcrUsageEstimator
     /**
      * @return array{provider:string,unit:string,quantity:int,currency:string,price_per_unit_rm:float,estimated_cost_rm:float,is_estimated:bool,prompt_tokens?:int,completion_tokens?:int,total_tokens?:int}
      */
-    public function estimate(int $quantity, ?array $providerUsage = null): array
+    public function estimate(int $quantity, ?array $providerUsage = null, ?string $providerOverride = null): array
     {
         $quantity = max(0, $quantity);
-        $provider = (string) config('ocr.provider', 'google_vision');
+        $provider = $providerOverride ?? (string) config('ocr.provider', 'google_vision');
 
         if ($provider === 'gemini' && is_array($providerUsage)) {
             $promptTokens = max(0, (int) ($providerUsage['prompt_tokens'] ?? 0));

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\Ocr\AccountingOcrClient;
 use App\Contracts\Ocr\OcrClient;
+use App\Services\Ocr\GeminiAccountingOcrClient;
 use App\Services\Ocr\GeminiIcOcrClient;
 use App\Services\Ocr\GoogleVisionOcrClient;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -17,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(AccountingOcrClient::class, GeminiAccountingOcrClient::class);
+
         $this->app->bind(OcrClient::class, function (): OcrClient {
             return match ((string) config('ocr.provider', 'google_vision')) {
                 'gemini' => new GeminiIcOcrClient,
@@ -37,6 +41,11 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('ocr-company', function (Request $request): Limit {
             return Limit::perMinute((int) config('ocr.rate_limit_per_minute', 30))
+                ->by($request->ip() ?: 'unknown');
+        });
+
+        RateLimiter::for('ocr-accounting', function (Request $request): Limit {
+            return Limit::perMinute((int) config('ocr.accounting_rate_limit_per_minute', config('ocr.rate_limit_per_minute', 30)))
                 ->by($request->ip() ?: 'unknown');
         });
 

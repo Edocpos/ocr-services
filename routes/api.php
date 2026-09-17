@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AccountingOcrController;
 use App\Http\Controllers\Api\CompanyOcrController;
 use App\Http\Controllers\Api\IcOcrController;
 use App\Http\Controllers\Api\StatutoryReceiptOcrController;
@@ -12,6 +13,10 @@ Route::middleware('throttle:ocr-ic')->group(function (): void {
 
 Route::middleware('throttle:ocr-company')->group(function (): void {
     Route::post('/ocr/company', CompanyOcrController::class);
+});
+
+Route::middleware('throttle:ocr-accounting')->group(function (): void {
+    Route::post('/ocr/accounting', AccountingOcrController::class);
 });
 
 Route::middleware('throttle:ocr-statutory')->group(function (): void {

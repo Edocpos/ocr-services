@@ -23,9 +23,14 @@ class AccountingOcrApiTest extends TestCase
         {
             public function __construct(private readonly array $payload) {}
 
-            public function extract(string $documentContent, string $mimeType, array $accounts): array
+            public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null): array
             {
-                return $this->payload;
+                $payload = $this->payload;
+                if ($companyContext === 'ACME SDN BHD - our company and invoice issuer') {
+                    $payload['document_direction'] = 'outgoing';
+                }
+
+                return $payload;
             }
         });
     }
@@ -61,6 +66,23 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('validation.is_postable', true)
             ->assertJsonPath('validation.requires_manual_review', false)
             ->assertJsonPath('meta.provider', 'gemini');
+    }
+
+    public function test_it_passes_free_form_company_context_and_returns_document_direction(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('BS/CA/CNB/BANK/10000', 100, 0, 'Customer paid us', 'Paid RM100'),
+            $this->line('PL/OI/RIN/SLIC/10000', 0, 100, 'Sale to customer', 'Invoice total RM100'),
+        ]));
+
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(),
+            'company' => 'ACME SDN BHD - our company and invoice issuer',
+            'accounts' => json_encode($this->accounts()),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.extracted.document_direction', 'outgoing')
+            ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher');
     }
 
     public function test_it_returns_a_general_voucher_for_a_credit_supplier_invoice(): void
@@ -370,6 +392,7 @@ class AccountingOcrApiTest extends TestCase
             'reference_number' => 'PV-1001',
             'counterparty' => 'Example Supplier',
             'description' => 'Office purchase',
+            'document_direction' => 'unknown',
             'currency' => 'MYR',
             'subtotal' => 100,
             'tax' => 0,

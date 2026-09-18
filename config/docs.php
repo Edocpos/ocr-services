@@ -212,9 +212,10 @@ return [
                         'rate_limit' => ':accounting_rate_limit requests/minute/IP',
                         'request_fields' => [
                             ['field' => 'document', 'type' => 'file', 'required' => true, 'notes' => 'PDF, JPG, PNG or WebP. Max 10 MB. One logical transaction.'],
+                            ['field' => 'company', 'type' => 'string', 'required' => false, 'notes' => 'Free-form company context with no fixed schema. Used to determine document direction.'],
                             ['field' => 'accounts', 'type' => 'JSON array', 'required' => true, 'notes' => '1–500 accounts with code, name, type, subtype, and optional aliases.'],
                         ],
-                        'curl_example' => "curl --location ':app_url/api/ocr/accounting' \\\n  --form 'document=@\"/absolute/path/to/voucher.pdf\"' \\\n  --form 'accounts=[{\"code\":\"BS/CA/CNB/BANK/10000\",\"name\":\"Maybank\",\"type\":\"asset\",\"subtype\":\"bank\"}]'",
+                        'curl_example' => "curl --location ':app_url/api/ocr/accounting' \\\n  --form 'document=@\"/absolute/path/to/voucher.pdf\"' \\\n  --form 'company=ACME SDN BHD. This is our company.' \\\n  --form 'accounts=[{\"code\":\"BS/CA/CNB/BANK/10000\",\"name\":\"Maybank\",\"type\":\"asset\",\"subtype\":\"bank\"}]'",
                         'responses' => [
                             [
                                 'label' => '200 OK — Balanced accounting proposal',
@@ -226,6 +227,7 @@ return [
                                             'reference_number' => 'PV-1001',
                                             'counterparty' => 'Example Supplier',
                                             'description' => 'Office supplies',
+                                            'document_direction' => 'incoming',
                                             'currency' => 'MYR',
                                             'subtotal' => 100.00,
                                             'tax' => 0.00,

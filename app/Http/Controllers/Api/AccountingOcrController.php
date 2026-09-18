@@ -29,6 +29,7 @@ class AccountingOcrController extends Controller
             return response()->json($pipeline->process(
                 $request->file('document'),
                 $request->accounts(),
+                $request->companyContext(),
                 $requestId,
             ));
         } catch (AccountingOcrException $exception) {

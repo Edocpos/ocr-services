@@ -31,6 +31,7 @@ class ProcessAccountingOcrRequest extends FormRequest
     {
         return [
             'document' => ['required', 'file', 'max:'.(int) config('ocr.accounting_max_file_size_kb', 10240)],
+            'company' => ['nullable', 'string', 'max:10000'],
             'accounts' => ['required', 'array', 'min:1', 'max:'.(int) config('ocr.accounting_max_accounts', 500)],
             'accounts.*.code' => ['required', 'string', 'max:100', 'distinct:strict'],
             'accounts.*.name' => ['required', 'string', 'max:255'],
@@ -90,6 +91,13 @@ class ProcessAccountingOcrRequest extends FormRequest
     public function accounts(): array
     {
         return array_values($this->validated('accounts'));
+    }
+
+    public function companyContext(): ?string
+    {
+        $company = $this->validated('company');
+
+        return is_string($company) && $company !== '' ? $company : null;
     }
 
     protected function failedValidation(Validator $validator): void

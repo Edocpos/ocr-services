@@ -21,7 +21,7 @@ class AccountingOcrPipeline
      * @param  list<array<string, mixed>>  $accounts
      * @return array<string, mixed>
      */
-    public function process(UploadedFile $document, array $accounts, string $requestId): array
+    public function process(UploadedFile $document, array $accounts, ?string $companyContext, string $requestId): array
     {
         $path = $document->getRealPath();
         $content = $path === false ? false : file_get_contents($path);
@@ -42,7 +42,7 @@ class AccountingOcrPipeline
             'account_count' => count($accounts),
         ]);
 
-        $payload = $this->client->extract($content, $mime, $accounts);
+        $payload = $this->client->extract($content, $mime, $accounts, $companyContext);
         $transactionCount = max(0, (int) ($payload['transaction_count'] ?? 0));
         if ($transactionCount > 1) {
             throw AccountingOcrException::multipleTransactions();
@@ -239,6 +239,7 @@ class AccountingOcrPipeline
             'reference_number' => $this->stringOrNull($payload['reference_number'] ?? null),
             'counterparty' => $this->stringOrNull($payload['counterparty'] ?? null),
             'description' => $this->stringOrNull($payload['description'] ?? null),
+            'document_direction' => $this->documentDirection($payload['document_direction'] ?? null),
             'currency' => $currency !== '' ? $currency : 'MYR',
             'subtotal' => $this->nullableAmount($payload['subtotal'] ?? null),
             'tax' => $this->nullableAmount($payload['tax'] ?? null),
@@ -284,5 +285,14 @@ class AccountingOcrPipeline
     private function stringOrNull(mixed $value): ?string
     {
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function documentDirection(mixed $value): string
+    {
+        $direction = strtolower(trim((string) $value));
+
+        return in_array($direction, ['incoming', 'outgoing', 'internal', 'unknown'], true)
+            ? $direction
+            : 'unknown';
     }
 }

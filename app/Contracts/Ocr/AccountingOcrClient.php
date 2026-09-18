@@ -8,5 +8,5 @@ interface AccountingOcrClient
      * @param  list<array<string, mixed>>  $accounts
      * @return array<string, mixed>
      */
-    public function extract(string $documentContent, string $mimeType, array $accounts): array;
+    public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null): array;
 }

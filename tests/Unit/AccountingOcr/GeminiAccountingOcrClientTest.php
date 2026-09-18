@@ -24,6 +24,7 @@ class GeminiAccountingOcrClientTest extends TestCase
     {
         $providerPayload = json_encode([
             'transaction_count' => 1,
+            'document_direction' => 'outgoing',
             'overall_confidence' => 0.95,
             'lines' => [],
         ]);
@@ -43,12 +44,14 @@ class GeminiAccountingOcrClientTest extends TestCase
             'document bytes',
             'image/png',
             [['code' => 'BANK-1', 'name' => 'Bank', 'type' => 'asset', 'subtype' => 'bank']],
+            'ACME SDN BHD - free form company context',
         );
 
         $this->assertSame(1, $result['transaction_count']);
         $this->assertSame(150, $result['usage']['total_tokens']);
         Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'test-model:generateContent')
-            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'BANK-1'));
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'BANK-1')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'ACME SDN BHD - free form company context'));
     }
 
     public function test_it_rejects_malformed_provider_json(): void

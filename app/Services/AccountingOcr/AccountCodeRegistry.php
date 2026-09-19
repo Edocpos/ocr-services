@@ -86,8 +86,8 @@ class AccountCodeRegistry
         $subtype = match ($canonical) {
             'BS/CA/CNB/BANK' => 'bank',
             'BS/CA/CNB/CASH' => 'cash',
-            'BS/CA/TRV/TRDB' => 'accounts_receivable',
-            'BS/CL/TPY/TPTC' => 'accounts_payable',
+            'BS/CA/TRV/TRDB' => 'trade_receivable',
+            'BS/CL/TPY/TPTC', 'BS/CL/OPY/OPCR' => 'trade_payable',
             'BS/CA/CTX/CYTX', 'BS/CA/CTX/PYPX' => 'input_tax',
             'BS/CL/CTL/CRTX', 'BS/CL/CTL/STDF', 'BS/CL/CTL/SNTP' => 'output_tax',
             default => 'other',

@@ -200,7 +200,7 @@ return [
             [
                 'id' => 'accounting-ocr',
                 'name' => 'Accounting classification OCR',
-                'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a balanced journal proposal with provisional account recommendations when needed.',
+                'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a balanced journal proposal with Acc01 parent-category recommendations when needed. Final leaf codes are never invented by OCR.',
                 'endpoints' => [
                     [
                         'id' => 'post-ocr-accounting',

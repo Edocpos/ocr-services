@@ -19,39 +19,16 @@ class AccountRecommendationService
         }
 
         $prefix = $this->registry->preferredPrefix($canonical, $accounts);
-        $number = $this->nextNumber($prefix, $accounts);
         $metadata = $this->registry->metadata($canonical);
+        $parts = explode('/', $prefix);
 
         return [
-            'provisional_code' => $number === null ? null : $prefix.'/'.str_pad((string) $number, 5, '0', STR_PAD_LEFT),
-            'suggested_name' => $this->stringOrNull($line['suggested_name'] ?? null) ?? 'Recommended Account',
             'account_type' => $metadata['type'],
             'account_subtype' => $metadata['subtype'],
-            'normal_balance' => $metadata['normal_balance'],
-            'requires_creation' => true,
-            'reason' => trim((string) ($line['reason'] ?? 'No suitable submitted account was found.')),
-            'evidence' => trim((string) ($line['evidence'] ?? '')),
-            'confidence' => $this->confidence($line['confidence'] ?? null),
+            'parent_code' => $prefix,
+            'parent_definition_key' => $parts[3],
+            'create_parent_if_missing' => true,
         ];
-    }
-
-    /** @param list<array<string, mixed>> $accounts */
-    private function nextNumber(string $prefix, array $accounts): ?int
-    {
-        $highest = 9999;
-        foreach ($accounts as $account) {
-            $code = strtoupper(trim((string) ($account['code'] ?? '')));
-            if (preg_match('/^'.preg_quote($prefix, '/').'\/(\d{5})$/', $code, $matches) !== 1) {
-                continue;
-            }
-
-            $number = (int) $matches[1];
-            if ($number >= 10000 && $number <= 89999) {
-                $highest = max($highest, $number);
-            }
-        }
-
-        return $highest >= 89999 ? null : $highest + 1;
     }
 
     private function stringOrNull(mixed $value): ?string
@@ -61,10 +38,5 @@ class AccountRecommendationService
         }
 
         return trim($value);
-    }
-
-    private function confidence(mixed $value): float
-    {
-        return round(max(0, min(1, is_numeric($value) ? (float) $value : 0)), 4);
     }
 }

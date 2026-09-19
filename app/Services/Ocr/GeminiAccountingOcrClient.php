@@ -91,7 +91,9 @@ COMPANY_CONTEXT is free-form data supplied by the user about the company whose b
 Rules:
 - The upload must represent one logical transaction. Set transaction_count greater than 1 only for unrelated transactions, not supporting pages for the same transaction.
 - Use only an exact code from AVAILABLE_ACCOUNTS when selected_account_code is non-null.
-- If no supplied account is suitable, selected_account_code must be null. Propose a suggested_name, account type, and four-level prefix from the supplied ALLOWED_PREFIXES list.
+- If no supplied account is suitable, selected_account_code must be null. Propose one suggested_name and a four-level Acc01 parent prefix from ALLOWED_PREFIXES. Never invent or return a five-level leaf code.
+- For a new account, suggested_name is the single account name to create. The API will return it as account_name and will use suggested_prefix only to build parent category metadata.
+- Trade Payables may use parent BS/CL/OPY/OPCR with the trade_payable subtype when that is the appropriate Acc01 category.
 - Each line must have a positive amount on exactly one of debit or credit. The full proposal must balance.
 - Do not invent exchange rates, tax, dates, references, counterparties, payment methods, or amounts.
 - Separate tax only when it is explicitly printed.

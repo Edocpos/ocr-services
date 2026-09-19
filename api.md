@@ -333,7 +333,7 @@ curl --location 'http://127.0.0.1:8000/api/ocr/accounting' \
 
 The response includes extracted transaction fields, `document_direction` (`incoming`, `outgoing`, `internal`, or `unknown`), voucher classification, journal lines, debit/credit totals, confidence, usage, validation issues, `is_postable`, and `requires_manual_review`. Each journal line includes a reason and document evidence.
 
-If no submitted account is suitable, the line returns `match_status: new_account_recommended` and a provisional five-level code such as `PL/OE/OEX/OPEX/10003`. Normal recommendations use the `10000–89999` range, increment within the category without reusing gaps, and require account creation plus manual review. The OCR service does not create the account.
+If no submitted account is suitable, the line returns `account_code: null`, places the proposed name in `account_name`, and sets `match_status: new_account_recommended`. Its `recommendation` contains only Acc01 creation metadata: `account_type`, `account_subtype`, `parent_code`, `parent_definition_key`, and `create_parent_if_missing`. The OCR service never invents the final five-level leaf code; Arkcloudant assigns it after user acceptance.
 
 Clean MYR proposals may return `is_postable: true`, but remain proposals requiring user approval. Recommended/unmatched accounts, foreign currency, low confidence, inconsistent totals, or imbalance set `requires_manual_review: true`.
 

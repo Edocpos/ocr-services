@@ -55,8 +55,6 @@ class AccountingOcrPipeline
         foreach ($accounts as $account) {
             $accountMap[strtoupper(trim((string) $account['code']))] = $account;
         }
-        $allocationAccounts = $accounts;
-
         $errors = [];
         $warnings = [];
         $journalLines = [];
@@ -102,19 +100,11 @@ class AccountingOcrPipeline
                     $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'invalid_selected_account', 'The provider selected an account code that was not supplied; it was rejected.');
                 }
 
-                $recommendation = $this->recommendations->recommend($sourceLine, $allocationAccounts);
+                $recommendation = $this->recommendations->recommend($sourceLine, $accounts);
                 if ($recommendation !== null) {
                     $hasRecommendation = true;
                     $matchStatus = 'new_account_recommended';
                     $subtype = (string) $recommendation['account_subtype'];
-                    if ($recommendation['provisional_code'] === null) {
-                        $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'account_code_range_exhausted', 'The user-defined number range for the recommended account category is exhausted.');
-                    } else {
-                        $allocationAccounts[] = [
-                            'code' => $recommendation['provisional_code'],
-                            'name' => $recommendation['suggested_name'],
-                        ];
-                    }
                 } else {
                     $hasUnmatched = true;
                     $matchStatus = 'unmatched';
@@ -132,7 +122,9 @@ class AccountingOcrPipeline
 
             $journalLines[] = [
                 'account_code' => $matched['code'] ?? null,
-                'account_name' => $matched['name'] ?? null,
+                'account_name' => $matched['name'] ?? ($recommendation !== null
+                    ? $this->suggestedAccountName($sourceLine)
+                    : null),
                 'debit' => $debit,
                 'credit' => $credit,
                 'match_status' => $matchStatus,
@@ -294,5 +286,11 @@ class AccountingOcrPipeline
         return in_array($direction, ['incoming', 'outgoing', 'internal', 'unknown'], true)
             ? $direction
             : 'unknown';
+    }
+
+    /** @param array<string, mixed> $line */
+    private function suggestedAccountName(array $line): string
+    {
+        return $this->stringOrNull($line['suggested_name'] ?? null) ?? 'Recommended Account';
     }
 }

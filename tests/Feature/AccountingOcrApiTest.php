@@ -63,6 +63,9 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('data.classification.voucher_type', 'payment_voucher')
             ->assertJsonPath('data.journal_entry.is_balanced', true)
             ->assertJsonPath('data.journal_entry.lines.0.account_code', 'PL/OE/OEX/OPEX/10001')
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Office Expenses')
+            ->assertJsonPath('data.journal_entry.lines.0.match_status', 'matched')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation', null)
             ->assertJsonPath('validation.is_postable', true)
             ->assertJsonPath('validation.requires_manual_review', false)
             ->assertJsonPath('meta.provider', 'gemini');
@@ -119,12 +122,15 @@ class AccountingOcrApiTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher')
-            ->assertJsonPath('data.journal_entry.lines.2.recommendation.provisional_code', 'BS/CL/CTL/SNTP/10000')
+            ->assertJsonPath('data.journal_entry.lines.2.account_code', null)
+            ->assertJsonPath('data.journal_entry.lines.2.account_name', 'SST Payable')
+            ->assertJsonPath('data.journal_entry.lines.2.recommendation.parent_code', 'BS/CL/CTL/SNTP')
+            ->assertJsonPath('data.journal_entry.lines.2.recommendation.parent_definition_key', 'SNTP')
             ->assertJsonPath('data.journal_entry.lines.2.recommendation.account_subtype', 'output_tax')
             ->assertJsonMissing(['code' => 'tax_account_missing']);
     }
 
-    public function test_it_recommends_the_next_user_defined_account_code_without_reusing_gaps(): void
+    public function test_it_returns_acc01_parent_metadata_without_inventing_a_leaf_code(): void
     {
         $accounts = $this->accounts();
         $accounts[] = ['code' => 'PL/OE/OEX/OPEX/10003', 'name' => 'Utilities', 'type' => 'expense', 'subtype' => 'other'];
@@ -143,14 +149,21 @@ class AccountingOcrApiTest extends TestCase
             'accounts' => json_encode($accounts),
         ], ['Accept' => 'application/json'])
             ->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.0.account_code', null)
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Cloud Software Subscription')
             ->assertJsonPath('data.journal_entry.lines.0.match_status', 'new_account_recommended')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.provisional_code', 'PL/OE/OEX/OPEX/10004')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.normal_balance', 'debit')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.account_type', 'expense')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/OE/OEX/OPEX')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_definition_key', 'OPEX')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.create_parent_if_missing', true)
+            ->assertJsonCount(5, 'data.journal_entry.lines.0.recommendation')
+            ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.provisional_code')
+            ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.suggested_name')
             ->assertJsonPath('validation.is_postable', false)
             ->assertJsonPath('validation.requires_manual_review', true);
     }
 
-    public function test_it_allocates_unique_codes_for_multiple_recommendations_in_one_category(): void
+    public function test_it_uses_account_name_as_the_single_name_for_multiple_recommendations(): void
     {
         $first = $this->line(null, 60, 0, 'First missing expense', 'Software RM60');
         $first['suggested_name'] = 'Software Subscription';
@@ -170,8 +183,12 @@ class AccountingOcrApiTest extends TestCase
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.provisional_code', 'PL/OE/OEX/OPEX/10002')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.provisional_code', 'PL/OE/OEX/OPEX/10003');
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Software Subscription')
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Parking Expense')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/OE/OEX/OPEX')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/OE/OEX/OPEX')
+            ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.suggested_name')
+            ->assertJsonMissingPath('data.journal_entry.lines.1.recommendation.suggested_name');
     }
 
     public function test_it_preserves_an_existing_tin_revenue_prefix_convention(): void
@@ -196,7 +213,9 @@ class AccountingOcrApiTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.provisional_code', 'PL/OI/TIN/SLIC/10011');
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Online Product Sales')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/OI/TIN/SLIC')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_definition_key', 'SLIC');
     }
 
     public function test_it_classifies_cash_to_bank_as_a_general_voucher_with_warning(): void
@@ -232,6 +251,7 @@ class AccountingOcrApiTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.journal_entry.lines.0.account_code', null)
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Parking Expense')
             ->assertJsonPath('data.journal_entry.lines.0.match_status', 'new_account_recommended')
             ->assertJsonPath('validation.warnings.0.code', 'invalid_selected_account');
     }

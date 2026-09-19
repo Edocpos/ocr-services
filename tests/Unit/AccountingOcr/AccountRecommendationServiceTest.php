@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AccountRecommendationServiceTest extends TestCase
 {
-    public function test_it_starts_at_10000_and_preserves_five_digits(): void
+    public function test_it_returns_parent_metadata_without_a_leaf_code_or_duplicate_name(): void
     {
         $service = new AccountRecommendationService(new AccountCodeRegistry);
 
@@ -18,25 +18,28 @@ class AccountRecommendationServiceTest extends TestCase
             'confidence' => 0.9,
         ], []);
 
-        $this->assertSame('BS/NA/PPE/MTVE/10000', $result['provisional_code']);
         $this->assertSame('asset', $result['account_type']);
-        $this->assertSame('debit', $result['normal_balance']);
+        $this->assertSame('other', $result['account_subtype']);
+        $this->assertSame('BS/NA/PPE/MTVE', $result['parent_code']);
+        $this->assertSame('MTVE', $result['parent_definition_key']);
+        $this->assertTrue($result['create_parent_if_missing']);
+        $this->assertArrayNotHasKey('provisional_code', $result);
+        $this->assertArrayNotHasKey('suggested_name', $result);
     }
 
-    public function test_it_does_not_allocate_outside_the_user_defined_range(): void
+    public function test_it_returns_acc01_trade_payable_metadata(): void
     {
         $service = new AccountRecommendationService(new AccountCodeRegistry);
 
         $result = $service->recommend([
-            'suggested_prefix' => 'BS/CA/CNB/BANK',
-            'suggested_name' => 'New Bank',
-        ], [[
-            'code' => 'BS/CA/CNB/BANK/89999',
-            'name' => 'Last Bank',
-        ]]);
+            'suggested_prefix' => 'BS/CL/OPY/OPCR',
+            'suggested_name' => 'Trade Payables',
+        ], []);
 
-        $this->assertNull($result['provisional_code']);
-        $this->assertSame('bank', $result['account_subtype']);
+        $this->assertSame('liability', $result['account_type']);
+        $this->assertSame('trade_payable', $result['account_subtype']);
+        $this->assertSame('BS/CL/OPY/OPCR', $result['parent_code']);
+        $this->assertSame('OPCR', $result['parent_definition_key']);
     }
 
     public function test_it_rejects_an_unknown_hierarchy(): void

@@ -319,7 +319,7 @@ Request: `multipart/form-data`
 | Field | Required | Rules |
 |---|---:|---|
 | `document` | Yes | PDF, JPG, PNG or WebP. Max 10 MB. One logical transaction. |
-| `company` | No | Free-form company context supplied by the user. No fixed schema. Used to identify whether the document is incoming, outgoing, or internal. |
+| `company` | No | JSON company snapshot or other free-form company context. It is forwarded as supplied and has no required schema. Used to identify whether the document is incoming, outgoing, or internal. |
 | `accounts` | Yes | JSON array of 1–500 accounts with unique `code`, `name`, `type`, `subtype`, and optional `aliases`. |
 
 Account types are `asset`, `liability`, `equity`, `revenue`, and `expense`. Subtypes are `cash`, `bank`, `accounts_receivable`, `accounts_payable`, `input_tax`, `output_tax`, and `other`.
@@ -327,7 +327,7 @@ Account types are `asset`, `liability`, `equity`, `revenue`, and `expense`. Subt
 ```bash
 curl --location 'http://127.0.0.1:8000/api/ocr/accounting' \
   --form 'document=@"/absolute/path/to/voucher.pdf"' \
-  --form 'company=ACME SDN BHD, registration 202301012345. This is our company.' \
+  --form 'company={"name":"ACME SDN BHD","registration_no":"202301012345"}' \
   --form 'accounts=[{"code":"BS/CA/CNB/BANK/10000","name":"Maybank","type":"asset","subtype":"bank","aliases":[]},{"code":"PL/OE/OEX/OPEX/10000","name":"Office Expenses","type":"expense","subtype":"other","aliases":[]}]'
 ```
 
@@ -335,7 +335,7 @@ The response includes extracted transaction fields, `document_direction` (`incom
 
 If no submitted account is suitable, the line returns `account_code: null`, places the proposed name in `account_name`, and sets `match_status: new_account_recommended`. Its `recommendation` contains only Acc01 creation metadata: `account_type`, `account_subtype`, `parent_code`, `parent_definition_key`, and `create_parent_if_missing`. The OCR service never invents the final five-level leaf code; Arkcloudant assigns it after user acceptance.
 
-For a new trade receivable on an unpaid outgoing customer invoice, `account_name` uses the extracted customer name. For a new trade payable on an unpaid incoming supplier invoice, it uses the extracted supplier name. This counterparty naming rule does not apply to revenue, expense, tax, cash, bank, or other recommended account categories. If the role or counterparty name is unclear, the extracted descriptive recommendation is used instead.
+For a new trade receivable on an unpaid outgoing customer invoice, `account_name` is the extracted customer party name only and the recommended parent is `BS/CA/TRV/TRDB`. For a new trade payable on an unpaid incoming supplier invoice, `account_name` is the extracted supplier party name only and the recommended parent is `BS/CL/TPY/TPTC`. Category prefixes such as `Trade Payables -` are never added to these leaf names. This counterparty naming rule does not apply to revenue, expense, tax, cash, bank, or other recommended account categories. If the role or counterparty name is unclear, the extracted descriptive recommendation is used instead.
 
 Clean MYR proposals may return `is_postable: true`, but remain proposals requiring user approval. Recommended/unmatched accounts, foreign currency, low confidence, inconsistent totals, or imbalance set `requires_manual_review: true`.
 

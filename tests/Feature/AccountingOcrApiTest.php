@@ -26,7 +26,7 @@ class AccountingOcrApiTest extends TestCase
             public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null): array
             {
                 $payload = $this->payload;
-                if ($companyContext === 'ACME SDN BHD - our company and invoice issuer') {
+                if ($companyContext === '{"name":"ACME SDN BHD","role":"invoice issuer"}') {
                     $payload['document_direction'] = 'outgoing';
                 }
 
@@ -71,7 +71,7 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('meta.provider', 'gemini');
     }
 
-    public function test_it_passes_free_form_company_context_and_returns_document_direction(): void
+    public function test_it_passes_a_json_company_snapshot_without_requiring_a_schema(): void
     {
         $this->bindPayload($this->payload([
             $this->line('BS/CA/CNB/BANK/10000', 100, 0, 'Customer paid us', 'Paid RM100'),
@@ -80,7 +80,7 @@ class AccountingOcrApiTest extends TestCase
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
-            'company' => 'ACME SDN BHD - our company and invoice issuer',
+            'company' => '{"name":"ACME SDN BHD","role":"invoice issuer"}',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -220,7 +220,7 @@ class AccountingOcrApiTest extends TestCase
     public function test_it_uses_the_supplier_name_for_a_new_trade_payable(): void
     {
         $payable = $this->line(null, 0, 100, 'Amount remains payable to supplier', 'Supplier: Contoso Supplies');
-        $payable['suggested_name'] = 'Trade Payables';
+        $payable['suggested_name'] = 'Trade Payables - Contoso Supplies';
         $payable['suggested_prefix'] = 'BS/CL/OPY/OPCR';
 
         $this->bindPayload($this->payload([
@@ -240,7 +240,8 @@ class AccountingOcrApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Contoso Supplies')
             ->assertJsonPath('data.journal_entry.lines.1.recommendation.account_subtype', 'trade_payable')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'BS/CL/OPY/OPCR');
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'BS/CL/TPY/TPTC')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_definition_key', 'TPTC');
     }
 
     public function test_it_preserves_an_existing_tin_revenue_prefix_convention(): void

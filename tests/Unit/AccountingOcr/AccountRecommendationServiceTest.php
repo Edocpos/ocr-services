@@ -27,7 +27,7 @@ class AccountRecommendationServiceTest extends TestCase
         $this->assertArrayNotHasKey('suggested_name', $result);
     }
 
-    public function test_it_returns_acc01_trade_payable_metadata(): void
+    public function test_it_normalizes_trade_payables_to_the_tptc_parent(): void
     {
         $service = new AccountRecommendationService(new AccountCodeRegistry);
 
@@ -38,8 +38,8 @@ class AccountRecommendationServiceTest extends TestCase
 
         $this->assertSame('liability', $result['account_type']);
         $this->assertSame('trade_payable', $result['account_subtype']);
-        $this->assertSame('BS/CL/OPY/OPCR', $result['parent_code']);
-        $this->assertSame('OPCR', $result['parent_definition_key']);
+        $this->assertSame('BS/CL/TPY/TPTC', $result['parent_code']);
+        $this->assertSame('TPTC', $result['parent_definition_key']);
     }
 
     public function test_it_rejects_an_unknown_hierarchy(): void

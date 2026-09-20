@@ -18,8 +18,16 @@ class AccountRecommendationService
             return null;
         }
 
-        $prefix = $this->registry->preferredPrefix($canonical, $accounts);
         $metadata = $this->registry->metadata($canonical);
+        if ($metadata['subtype'] === 'trade_payable') {
+            $canonical = 'BS/CL/TPY/TPTC';
+            $metadata = $this->registry->metadata($canonical);
+        } elseif ($metadata['subtype'] === 'trade_receivable') {
+            $canonical = 'BS/CA/TRV/TRDB';
+            $metadata = $this->registry->metadata($canonical);
+        }
+
+        $prefix = $this->registry->preferredPrefix($canonical, $accounts);
         $parts = explode('/', $prefix);
 
         return [

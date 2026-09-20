@@ -93,6 +93,9 @@ Rules:
 - Use only an exact code from AVAILABLE_ACCOUNTS when selected_account_code is non-null.
 - If no supplied account is suitable, selected_account_code must be null. Propose one suggested_name and a four-level Acc01 parent prefix from ALLOWED_PREFIXES. Never invent or return a five-level leaf code.
 - For a new account, suggested_name is the single account name to create. The API will return it as account_name and will use suggested_prefix only to build parent category metadata.
+- For an unpaid outgoing customer invoice that needs a new trade receivable account, use the customer's extracted counterparty name as suggested_name.
+- For an unpaid incoming supplier invoice that needs a new trade payable account, use the supplier's extracted counterparty name as suggested_name.
+- Do not use the counterparty name for revenue, expense, tax, cash, bank, or other account categories. If the counterparty role or name is unclear, use a descriptive generic account name instead.
 - Trade Payables may use parent BS/CL/OPY/OPCR with the trade_payable subtype when that is the appropriate Acc01 category.
 - Each line must have a positive amount on exactly one of debit or credit. The full proposal must balance.
 - Do not invent exchange rates, tax, dates, references, counterparties, payment methods, or amounts.

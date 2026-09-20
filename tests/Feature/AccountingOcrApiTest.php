@@ -191,6 +191,58 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonMissingPath('data.journal_entry.lines.1.recommendation.suggested_name');
     }
 
+    public function test_it_uses_the_customer_name_for_a_new_trade_receivable(): void
+    {
+        $receivable = $this->line(null, 100, 0, 'Customer owes the invoice total', 'Bill to: Northwind Sdn Bhd');
+        $receivable['suggested_name'] = 'Trade Receivables';
+        $receivable['suggested_prefix'] = 'BS/CA/TRV/TRDB';
+
+        $this->bindPayload($this->payload([
+            $receivable,
+            $this->line('PL/OI/RIN/SLIC/10000', 0, 100, 'Sale to customer', 'Invoice total RM100'),
+        ], [
+            'counterparty' => 'Northwind Sdn Bhd',
+            'document_direction' => 'outgoing',
+            'payment_method' => null,
+            'payment_reference' => null,
+        ]));
+
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(),
+            'accounts' => json_encode($this->accounts()),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Northwind Sdn Bhd')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.account_subtype', 'trade_receivable')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'BS/CA/TRV/TRDB');
+    }
+
+    public function test_it_uses_the_supplier_name_for_a_new_trade_payable(): void
+    {
+        $payable = $this->line(null, 0, 100, 'Amount remains payable to supplier', 'Supplier: Contoso Supplies');
+        $payable['suggested_name'] = 'Trade Payables';
+        $payable['suggested_prefix'] = 'BS/CL/OPY/OPCR';
+
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense incurred', 'Supplier invoice'),
+            $payable,
+        ], [
+            'counterparty' => 'Contoso Supplies',
+            'document_direction' => 'incoming',
+            'payment_method' => null,
+            'payment_reference' => null,
+        ]));
+
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(),
+            'accounts' => json_encode($this->accounts()),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Contoso Supplies')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.account_subtype', 'trade_payable')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'BS/CL/OPY/OPCR');
+    }
+
     public function test_it_preserves_an_existing_tin_revenue_prefix_convention(): void
     {
         $accounts = array_values(array_filter(

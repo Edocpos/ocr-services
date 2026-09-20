@@ -123,7 +123,7 @@ class AccountingOcrPipeline
             $journalLines[] = [
                 'account_code' => $matched['code'] ?? null,
                 'account_name' => $matched['name'] ?? ($recommendation !== null
-                    ? $this->suggestedAccountName($sourceLine)
+                    ? $this->recommendedAccountName($sourceLine, $recommendation, $payload)
                     : null),
                 'debit' => $debit,
                 'credit' => $credit,
@@ -289,8 +289,19 @@ class AccountingOcrPipeline
     }
 
     /** @param array<string, mixed> $line */
-    private function suggestedAccountName(array $line): string
+    private function recommendedAccountName(array $line, array $recommendation, array $payload): string
     {
+        $counterparty = $this->stringOrNull($payload['counterparty'] ?? null);
+        $direction = $this->documentDirection($payload['document_direction'] ?? null);
+        $subtype = (string) ($recommendation['account_subtype'] ?? '');
+
+        if ($counterparty !== null && (
+            ($direction === 'outgoing' && $subtype === 'trade_receivable')
+            || ($direction === 'incoming' && $subtype === 'trade_payable')
+        )) {
+            return $counterparty;
+        }
+
         return $this->stringOrNull($line['suggested_name'] ?? null) ?? 'Recommended Account';
     }
 }

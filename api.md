@@ -335,6 +335,8 @@ The response includes extracted transaction fields, `document_direction` (`incom
 
 If no submitted account is suitable, the line returns `account_code: null`, places the proposed name in `account_name`, and sets `match_status: new_account_recommended`. Its `recommendation` contains only Acc01 creation metadata: `account_type`, `account_subtype`, `parent_code`, `parent_definition_key`, and `create_parent_if_missing`. The OCR service never invents the final five-level leaf code; Arkcloudant assigns it after user acceptance.
 
+For a new trade receivable on an unpaid outgoing customer invoice, `account_name` uses the extracted customer name. For a new trade payable on an unpaid incoming supplier invoice, it uses the extracted supplier name. This counterparty naming rule does not apply to revenue, expense, tax, cash, bank, or other recommended account categories. If the role or counterparty name is unclear, the extracted descriptive recommendation is used instead.
+
 Clean MYR proposals may return `is_postable: true`, but remain proposals requiring user approval. Recommended/unmatched accounts, foreign currency, low confidence, inconsistent totals, or imbalance set `requires_manual_review: true`.
 
 Errors:

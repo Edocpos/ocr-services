@@ -127,7 +127,7 @@ return [
             [
                 'id' => 'company-ocr',
                 'name' => 'Company OCR',
-                'description' => 'Extract Malaysian company registration details from SSM certificates, company profiles, SST certificates, and TIN letters.',
+                'description' => 'Extract Malaysian company registration details from SSM certificates, company profiles, SST certificates, and TIN letters. When the file is a company-register document, also return corporate_document so the caller can file it.',
                 'endpoints' => [
                     [
                         'id' => 'post-ocr-company',
@@ -173,6 +173,14 @@ return [
                                             'city' => 'Kuala Lumpur',
                                             'state' => 'Wilayah Persekutuan',
                                             'country' => 'Malaysia',
+                                        ],
+                                        'corporate_document' => [
+                                            'document_type' => 'notice_of_registration',
+                                            'document_date' => '2026-01-15',
+                                            'effective_date' => null,
+                                            'lodgement_date' => '2026-01-20',
+                                            'ssm_reference' => null,
+                                            'annual_return_year' => null,
                                         ],
                                     ],
                                     'validation' => [

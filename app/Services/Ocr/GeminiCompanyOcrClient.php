@@ -47,6 +47,12 @@ Extract the company details and return them as a JSON object with exactly these 
   "hrdc_employer_no": "123456789012345",
   "zakat_employer_no": "EMP123456",
   "jtk_employer_no": "123456789012",
+  "corporate_document_type": null,
+  "document_date": null,
+  "effective_date": null,
+  "lodgement_date": null,
+  "ssm_reference": null,
+  "annual_return_year": null,
   "confidence": 0.95
 }
 
@@ -69,6 +75,13 @@ Rules:
 - hrdc_employer_no: HRD Corp MyCoID.
 - zakat_employer_no: Zakat / PPZ employer number.
 - jtk_employer_no: JTK (Jabatan Tenaga Kerja) employer number.
+- corporate_document_type: Identify the file only when its title or section heading is one of these company-register documents. Use null for a company profile, SST certificate, TIN letter, local trading licence, or employer registration letter.
+  Allowed values: form_8, form_9, ma, form_13, form_24, form_32a, form_44, form_49, historical_annual_return, section_14, notice_of_registration, section_17, section_28, section_32, section_46, section_51, section_58, section_58_236_2, section_68, section_78, section_105, section_236, section_236_3.
+  section_14 = Application for Registration. notice_of_registration = Notice of Registration. section_17 = Certificate of Incorporation under Companies Act 2016. section_68 = Annual Return. section_28 = change of company name. section_32 = Constitution. section_46 = registered office. section_51 = register of members. section_58 = director or officer change. section_58_236_2 = first secretary appointment. section_236_3 = secretary declaration. section_236 = company secretary. section_78 = allotment of shares. section_105 = transfer of shares. form_8, form_9, ma, form_13, form_24, form_32a, form_44, form_49, and historical_annual_return are the Companies Act 1965 records.
+- document_date, effective_date, lodgement_date: YYYY-MM-DD when printed on that register document, otherwise null.
+- ssm_reference: SSM or lodgement reference printed on that register document, otherwise null.
+- annual_return_year: four-digit filing year for section_68 only, otherwise null.
+- Do not invent a document type from a company name, address, or registration number.
 - confidence: Overall extraction confidence from 0.0 to 1.0.
 - Return null for any field that cannot be clearly determined. Do not guess.
 - Return ONLY the JSON object.
@@ -152,6 +165,12 @@ PROMPT;
                                 'hrdc_employer_no' => ['type' => 'string', 'nullable' => true],
                                 'zakat_employer_no' => ['type' => 'string', 'nullable' => true],
                                 'jtk_employer_no' => ['type' => 'string', 'nullable' => true],
+                                'corporate_document_type' => ['type' => 'string', 'nullable' => true],
+                                'document_date' => ['type' => 'string', 'nullable' => true],
+                                'effective_date' => ['type' => 'string', 'nullable' => true],
+                                'lodgement_date' => ['type' => 'string', 'nullable' => true],
+                                'ssm_reference' => ['type' => 'string', 'nullable' => true],
+                                'annual_return_year' => ['type' => 'integer', 'nullable' => true],
                                 'confidence' => ['type' => 'number'],
                             ],
                             'required' => ['confidence', 'msic_codes'],
@@ -297,6 +316,12 @@ PROMPT;
             'hrdc_employer_no' => $nullableString($extracted['hrdc_employer_no'] ?? null),
             'zakat_employer_no' => $nullableString($extracted['zakat_employer_no'] ?? null),
             'jtk_employer_no' => $nullableString($extracted['jtk_employer_no'] ?? null),
+            'corporate_document_type' => $nullableString($extracted['corporate_document_type'] ?? null),
+            'document_date' => $nullableString($extracted['document_date'] ?? null),
+            'effective_date' => $nullableString($extracted['effective_date'] ?? null),
+            'lodgement_date' => $nullableString($extracted['lodgement_date'] ?? null),
+            'ssm_reference' => $nullableString($extracted['ssm_reference'] ?? null),
+            'annual_return_year' => $extracted['annual_return_year'] ?? null,
         ];
 
         $confidence = isset($extracted['confidence']) && is_numeric($extracted['confidence'])

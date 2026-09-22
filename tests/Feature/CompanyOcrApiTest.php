@@ -309,6 +309,81 @@ class CompanyOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.company_name', 'Sabah Trading Enterprise')
             ->assertJsonPath('data.extracted.local_trading_license', 'DBKK-TL-88991')
             ->assertJsonPath('data.extracted.local_trading_license_issuer', 'Dewan Bandaraya Kota Kinabalu')
-            ->assertJsonPath('data.extracted.local_trading_license_expires_on', '2026-12-31');
+            ->assertJsonPath('data.extracted.local_trading_license_expires_on', '2026-12-31')
+            ->assertJsonPath('data.corporate_document.document_type', null);
+    }
+
+    public function test_it_classifies_a_notice_of_registration_and_returns_register_fields(): void
+    {
+        $this->app->bind(OcrClient::class, fn () => new class implements OcrClient
+        {
+            public function detectText(string $imageContent): array
+            {
+                return [
+                    'full_text' => implode("\n", [
+                        'NOTICE OF REGISTRATION',
+                        'NAMA SYARIKAT: Template Demo Sdn Bhd',
+                        'NO. SYARIKAT: 202600000999',
+                        'DOCUMENT DATE: 2026-01-15',
+                        'LODGEMENT DATE: 20/01/2026',
+                        'SSM REFERENCE: SSM-2026-001',
+                    ]),
+                    'lines' => [
+                        'NOTICE OF REGISTRATION',
+                        'NAMA SYARIKAT: Template Demo Sdn Bhd',
+                        'NO. SYARIKAT: 202600000999',
+                        'DOCUMENT DATE: 2026-01-15',
+                        'LODGEMENT DATE: 20/01/2026',
+                        'SSM REFERENCE: SSM-2026-001',
+                    ],
+                    'overall_confidence' => 0.95,
+                ];
+            }
+        });
+
+        $response = $this->post('/api/ocr/company', [
+            'image' => $this->fakePngImage(),
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.extracted.company_name', 'Template Demo Sdn Bhd')
+            ->assertJsonPath('data.corporate_document.document_type', 'notice_of_registration')
+            ->assertJsonPath('data.corporate_document.document_date', '2026-01-15')
+            ->assertJsonPath('data.corporate_document.lodgement_date', '2026-01-20')
+            ->assertJsonPath('data.corporate_document.ssm_reference', 'SSM-2026-001')
+            ->assertJsonPath('data.corporate_document.annual_return_year', null);
+    }
+
+    public function test_it_uses_a_pre_extracted_section_68_document_and_its_year(): void
+    {
+        $this->app->bind(OcrClient::class, fn () => new class implements OcrClient
+        {
+            public function detectText(string $imageContent): array
+            {
+                return [
+                    'full_text' => 'ACME CORPORATION SDN BHD',
+                    'lines' => ['ACME CORPORATION SDN BHD'],
+                    'overall_confidence' => 0.96,
+                    'pre_extracted' => [
+                        'company_name' => 'Acme Corporation Sdn Bhd',
+                        'company_type' => 'sdn_bhd',
+                        'ssm_number' => '202301012345',
+                        'msic_codes' => [],
+                        'corporate_document_type' => 'Section 68 (2026)',
+                        'document_date' => '2026-03-01',
+                        'annual_return_year' => 2026,
+                    ],
+                ];
+            }
+        });
+
+        $response = $this->post('/api/ocr/company', [
+            'image' => $this->fakePngImage(),
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.corporate_document.document_type', 'section_68')
+            ->assertJsonPath('data.corporate_document.document_date', '2026-03-01')
+            ->assertJsonPath('data.corporate_document.annual_return_year', 2026);
     }
 }

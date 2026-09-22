@@ -4,27 +4,34 @@ namespace App\Services\CompanyOcr;
 
 class CompanyFieldExtractor
 {
+    public function __construct(
+        private readonly CompanyCorporateDocumentClassifier $classifier,
+    ) {}
+
     /**
      * @param  array{full_text?:string,lines?:array<int,string>,pre_extracted?:array<string,mixed>}  $ocrPayload
      * @return array<string,mixed>
      */
     public function extract(array $ocrPayload): array
     {
-        if (isset($ocrPayload['pre_extracted']) && is_array($ocrPayload['pre_extracted'])) {
-            return $this->fromPreExtracted($ocrPayload['pre_extracted']);
-        }
-
         $lines = array_values(array_filter(
             array_map(static fn (mixed $line): string => trim((string) $line), $ocrPayload['lines'] ?? []),
             static fn (string $line): bool => $line !== ''
         ));
         $fullText = trim((string) ($ocrPayload['full_text'] ?? implode("\n", $lines)));
 
+        if (isset($ocrPayload['pre_extracted']) && is_array($ocrPayload['pre_extracted'])) {
+            return $this->applyCorporateDocument(
+                $this->fromPreExtracted($ocrPayload['pre_extracted']),
+                $fullText,
+            );
+        }
+
         $address = $this->extractAddress($fullText);
         $phone = $this->extractPhone($fullText);
         $statutory = $this->extractStatutoryNumbers($fullText);
 
-        return [
+        return $this->applyCorporateDocument([
             'company_name' => $this->extractCompanyName($fullText, $lines),
             'company_type' => $this->extractCompanyType($fullText),
             'ssm_number' => $this->extractSsmNumber($fullText),
@@ -50,7 +57,7 @@ class CompanyFieldExtractor
             'hrdc_employer_no' => $statutory['hrdc_employer_no'],
             'zakat_employer_no' => $statutory['zakat_employer_no'],
             'jtk_employer_no' => $statutory['jtk_employer_no'],
-        ];
+        ], $fullText);
     }
 
     /**
@@ -100,7 +107,64 @@ class CompanyFieldExtractor
             'hrdc_employer_no' => $stringOrNull($preExtracted['hrdc_employer_no'] ?? null),
             'zakat_employer_no' => $stringOrNull($preExtracted['zakat_employer_no'] ?? null),
             'jtk_employer_no' => $stringOrNull($preExtracted['jtk_employer_no'] ?? null),
+            'corporate_document_type' => $stringOrNull($preExtracted['corporate_document_type'] ?? null),
+            'document_date' => $stringOrNull($preExtracted['document_date'] ?? null),
+            'effective_date' => $stringOrNull($preExtracted['effective_date'] ?? null),
+            'lodgement_date' => $stringOrNull($preExtracted['lodgement_date'] ?? null),
+            'ssm_reference' => $stringOrNull($preExtracted['ssm_reference'] ?? null),
+            'annual_return_year' => $preExtracted['annual_return_year'] ?? null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $raw
+     * @return array<string,mixed>
+     */
+    private function applyCorporateDocument(array $raw, string $fullText): array
+    {
+        $explicitType = $raw['corporate_document_type'] ?? null;
+        $type = $this->classifier->classify(
+            is_string($explicitType) || is_numeric($explicitType) ? (string) $explicitType : null,
+            $fullText,
+        );
+
+        $raw['corporate_document_type'] = $type;
+
+        if ($type === null) {
+            $raw['document_date'] = null;
+            $raw['effective_date'] = null;
+            $raw['lodgement_date'] = null;
+            $raw['ssm_reference'] = null;
+            $raw['annual_return_year'] = null;
+
+            return $raw;
+        }
+
+        $hints = $this->classifier->extractRegisterHints($fullText);
+        foreach (['document_date', 'effective_date', 'lodgement_date', 'ssm_reference', 'annual_return_year'] as $field) {
+            if ($this->isBlank($raw[$field] ?? null) && ! $this->isBlank($hints[$field] ?? null)) {
+                $raw[$field] = $hints[$field];
+            }
+        }
+
+        if ($type !== 'section_68') {
+            $raw['annual_return_year'] = null;
+        }
+
+        return $raw;
+    }
+
+    private function isBlank(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        if (is_string($value)) {
+            return trim($value) === '';
+        }
+
+        return false;
     }
 
     /**

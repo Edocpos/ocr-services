@@ -34,6 +34,7 @@ class CompanyResponseBuilder
 
         $errors = $this->uniqueErrors($errors);
         $extracted = $this->extractedPayload($normalized);
+        $corporateDocument = $this->corporateDocumentPayload($normalized);
         $derived = [
             'company_type' => $ruleResult['company_type'],
             'city' => $ruleResult['city'],
@@ -45,9 +46,10 @@ class CompanyResponseBuilder
             'data' => [
                 'extracted' => $extracted,
                 'derived' => $derived,
+                'corporate_document' => $corporateDocument,
             ],
             'validation' => [
-                'status' => $this->statusFromErrors($errors, $extracted, $derived),
+                'status' => $this->statusFromErrors($errors, $extracted, $derived, $corporateDocument['document_type']),
                 'errors' => $errors,
                 'warnings' => [],
             ],
@@ -81,6 +83,7 @@ class CompanyResponseBuilder
                     'state' => null,
                     'country' => null,
                 ],
+                'corporate_document' => $this->corporateDocumentPayload([]),
             ],
             'validation' => [
                 'status' => 'failed',
@@ -166,6 +169,33 @@ class CompanyResponseBuilder
     }
 
     /**
+     * @param  array<string,mixed>  $normalized
+     * @return array{
+     *     document_type: ?string,
+     *     document_date: ?string,
+     *     effective_date: ?string,
+     *     lodgement_date: ?string,
+     *     ssm_reference: ?string,
+     *     annual_return_year: ?int
+     * }
+     */
+    private function corporateDocumentPayload(array $normalized): array
+    {
+        $year = $normalized['annual_return_year'] ?? null;
+
+        return [
+            'document_type' => is_string($normalized['corporate_document_type'] ?? null)
+                ? $normalized['corporate_document_type']
+                : null,
+            'document_date' => is_string($normalized['document_date'] ?? null) ? $normalized['document_date'] : null,
+            'effective_date' => is_string($normalized['effective_date'] ?? null) ? $normalized['effective_date'] : null,
+            'lodgement_date' => is_string($normalized['lodgement_date'] ?? null) ? $normalized['lodgement_date'] : null,
+            'ssm_reference' => is_string($normalized['ssm_reference'] ?? null) ? $normalized['ssm_reference'] : null,
+            'annual_return_year' => is_int($year) ? $year : (is_numeric($year) ? (int) $year : null),
+        ];
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function emptyUsage(): array
@@ -201,7 +231,7 @@ class CompanyResponseBuilder
      * @param  array<string,mixed>  $extracted
      * @param  array<string,mixed>  $derived
      */
-    private function statusFromErrors(array $errors, array $extracted, array $derived): string
+    private function statusFromErrors(array $errors, array $extracted, array $derived, ?string $corporateDocumentType = null): string
     {
         $hasCore = ($extracted['company_name'] ?? null) !== null
             && (($extracted['ssm_number'] ?? null) !== null || ($extracted['local_trading_license'] ?? null) !== null);
@@ -220,7 +250,8 @@ class CompanyResponseBuilder
             || ($extracted['address_line_1'] ?? null) !== null
             || ($extracted['email'] ?? null) !== null
             || ($extracted['phone'] ?? null) !== null
-            || ($derived['company_type'] ?? null) !== null;
+            || ($derived['company_type'] ?? null) !== null
+            || $corporateDocumentType !== null;
 
         if ($errors === [] && $hasCore) {
             return 'ok';

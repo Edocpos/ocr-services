@@ -115,6 +115,27 @@ class CompanyValueNormalizer
         return $compact !== '' ? $compact : null;
     }
 
+    public function normalizeAnnualReturnYear(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            $year = $value;
+        } elseif (is_float($value)) {
+            $year = (int) $value;
+        } elseif (is_string($value) && preg_match('/^\d{4}$/', trim($value)) === 1) {
+            $year = (int) trim($value);
+        } else {
+            return null;
+        }
+
+        $max = (int) date('Y') + 1;
+
+        if ($year < 1965 || $year > $max) {
+            return null;
+        }
+
+        return $year;
+    }
+
     public function normalizeDate(?string $value): ?string
     {
         $value = $this->normalizeText($value);

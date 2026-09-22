@@ -122,6 +122,16 @@ class CompanyOcrPipeline
             'hrdc_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['hrdc_employer_no'] ?? null),
             'zakat_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['zakat_employer_no'] ?? null),
             'jtk_employer_no' => $this->normalizer->normalizeEmployerNumber($raw['jtk_employer_no'] ?? null),
+            'corporate_document_type' => is_string($raw['corporate_document_type'] ?? null)
+                ? $raw['corporate_document_type']
+                : null,
+            'document_date' => $this->normalizer->normalizeDate(is_string($raw['document_date'] ?? null) ? $raw['document_date'] : null),
+            'effective_date' => $this->normalizer->normalizeDate(is_string($raw['effective_date'] ?? null) ? $raw['effective_date'] : null),
+            'lodgement_date' => $this->normalizer->normalizeDate(is_string($raw['lodgement_date'] ?? null) ? $raw['lodgement_date'] : null),
+            'ssm_reference' => $this->normalizer->normalizeText(is_string($raw['ssm_reference'] ?? null) ? $raw['ssm_reference'] : null),
+            'annual_return_year' => ($raw['corporate_document_type'] ?? null) === 'section_68'
+                ? $this->normalizer->normalizeAnnualReturnYear($raw['annual_return_year'] ?? null)
+                : null,
         ];
     }
 }

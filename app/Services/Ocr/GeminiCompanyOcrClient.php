@@ -69,6 +69,8 @@ Rules:
 - phone: Local number without country code. country_code should be "+60" for Malaysian numbers.
 - email: Company email if printed.
 - Split the registered address into address_line_1, address_line_2, address_line_3. Put postcode, city, state, and country in their own fields. Do not repeat postcode/city/state inside the address lines.
+- Keep address_line_1 within 15 characters, and address_line_2 and address_line_3 within 30 characters each. Break on word boundaries and continue the leftover words on the next line. Do not drop words until address_line_3 is full.
+- Keep these lengths: company_name 255, ssm_number 12, tin_number 14, sst_number 20, local_trading_license 20, local_trading_license_issuer 10, phone 10 local digits, email 254, city/state/country 50 letters, lhdn_employer_no 11, epf_employer_no 20, socso_employer_no 12, hrdc_employer_no 20, zakat_employer_no 30, jtk_employer_no 30.
 - lhdn_employer_no: LHDN / PCB employer file number (often starts with E). Not the company TIN.
 - epf_employer_no: KWSP / EPF employer number.
 - socso_employer_no: SOCSO / PERKESO employer number. If EIS uses the same number, return that value here.

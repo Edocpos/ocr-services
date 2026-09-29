@@ -17,6 +17,7 @@ class CompanyOcrPipeline
         private readonly IcImagePreprocessor $imagePreprocessor,
         private readonly CompanyFieldExtractor $fieldExtractor,
         private readonly CompanyValueNormalizer $normalizer,
+        private readonly CompanyFormFieldFitter $formFieldFitter,
         private readonly CompanyRuleEngine $ruleEngine,
         private readonly CompanyConfidenceEvaluator $confidenceEvaluator,
         private readonly OcrUsageEstimator $usageEstimator,
@@ -96,7 +97,7 @@ class CompanyOcrPipeline
     {
         $phone = $this->normalizer->normalizePhone($raw['phone'] ?? null, $raw['country_code'] ?? null);
 
-        return [
+        return $this->formFieldFitter->fit([
             'company_name' => $this->normalizer->normalizeCompanyName($raw['company_name'] ?? null),
             'company_type' => $this->normalizer->normalizeCompanyType($raw['company_type'] ?? null),
             'ssm_number' => $this->normalizer->normalizeSsmNumber($raw['ssm_number'] ?? null),
@@ -132,6 +133,6 @@ class CompanyOcrPipeline
             'annual_return_year' => ($raw['corporate_document_type'] ?? null) === 'section_68'
                 ? $this->normalizer->normalizeAnnualReturnYear($raw['annual_return_year'] ?? null)
                 : null,
-        ];
+        ]);
     }
 }

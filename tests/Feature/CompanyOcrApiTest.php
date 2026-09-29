@@ -69,7 +69,8 @@ class CompanyOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.msic_codes.0', '62010')
             ->assertJsonPath('data.extracted.email', 'company@example.com')
             ->assertJsonPath('data.extracted.postcode', '50450')
-            ->assertJsonPath('data.extracted.address_line_1', 'No 1, Jalan Template')
+            ->assertJsonPath('data.extracted.address_line_1', 'No 1, Jalan')
+            ->assertJsonPath('data.extracted.address_line_2', 'Template Tingkat 5')
             ->assertJsonPath('meta.document_type', 'company');
     }
 
@@ -122,7 +123,7 @@ class CompanyOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.phone', '123456789')
             ->assertJsonPath('data.extracted.country_code', '+60')
             ->assertJsonPath('data.extracted.msic_codes.1', '62021')
-            ->assertJsonPath('data.extracted.lhdn_employer_no', 'E12345678901')
+            ->assertJsonPath('data.extracted.lhdn_employer_no', 'E1234567890')
             ->assertJsonPath('data.extracted.epf_employer_no', '1234567')
             ->assertJsonPath('data.extracted.socso_employer_no', '123456789012')
             ->assertJsonPath('data.extracted.hrdc_employer_no', '123456789012345')
@@ -171,7 +172,7 @@ class CompanyOcrApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.extracted.tin_number', 'C1234567890')
-            ->assertJsonPath('data.extracted.lhdn_employer_no', 'E12345678901')
+            ->assertJsonPath('data.extracted.lhdn_employer_no', 'E1234567890')
             ->assertJsonPath('data.extracted.epf_employer_no', '1234567')
             ->assertJsonPath('data.extracted.socso_employer_no', '123456789012')
             ->assertJsonPath('data.extracted.hrdc_employer_no', '123456789012345')
@@ -308,7 +309,7 @@ class CompanyOcrApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.extracted.company_name', 'Sabah Trading Enterprise')
             ->assertJsonPath('data.extracted.local_trading_license', 'DBKK-TL-88991')
-            ->assertJsonPath('data.extracted.local_trading_license_issuer', 'Dewan Bandaraya Kota Kinabalu')
+            ->assertJsonPath('data.extracted.local_trading_license_issuer', 'Dewan')
             ->assertJsonPath('data.extracted.local_trading_license_expires_on', '2026-12-31')
             ->assertJsonPath('data.corporate_document.document_type', null);
     }

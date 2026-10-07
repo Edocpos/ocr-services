@@ -23,7 +23,7 @@ class AccountingOcrApiTest extends TestCase
         {
             public function __construct(private readonly array $payload) {}
 
-            public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null): array
+            public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null, array $context = []): array
             {
                 $payload = $this->payload;
                 if ($companyContext === '{"name":"ACME SDN BHD","role":"invoice issuer"}') {
@@ -153,7 +153,7 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Cloud Software Subscription')
             ->assertJsonPath('data.journal_entry.lines.0.match_status', 'new_account_recommended')
             ->assertJsonPath('data.journal_entry.lines.0.recommendation.account_type', 'expense')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/OE/OEX/OPEX')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/TE/TEX/OPEX')
             ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_definition_key', 'OPEX')
             ->assertJsonPath('data.journal_entry.lines.0.recommendation.create_parent_if_missing', true)
             ->assertJsonCount(5, 'data.journal_entry.lines.0.recommendation')
@@ -185,8 +185,8 @@ class AccountingOcrApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Software Subscription')
             ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Parking Expense')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/OE/OEX/OPEX')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/OE/OEX/OPEX')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/TE/TEX/OPEX')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/TE/TEX/OPEX')
             ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.suggested_name')
             ->assertJsonMissingPath('data.journal_entry.lines.1.recommendation.suggested_name');
     }
@@ -221,7 +221,7 @@ class AccountingOcrApiTest extends TestCase
     {
         $payable = $this->line(null, 0, 100, 'Amount remains payable to supplier', 'Supplier: Contoso Supplies');
         $payable['suggested_name'] = 'Trade Payables - Contoso Supplies';
-        $payable['suggested_prefix'] = 'BS/CL/OPY/OPCR';
+        $payable['suggested_prefix'] = 'BS/CL/TPY/TPTC';
 
         $this->bindPayload($this->payload([
             $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense incurred', 'Supplier invoice'),
@@ -244,7 +244,7 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_definition_key', 'TPTC');
     }
 
-    public function test_it_preserves_an_existing_tin_revenue_prefix_convention(): void
+    public function test_it_uses_pdf_parents_for_new_accounts_and_accepts_legacy_accounts(): void
     {
         $accounts = array_values(array_filter(
             $this->accounts(),
@@ -267,7 +267,7 @@ class AccountingOcrApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher')
             ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Online Product Sales')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/OI/TIN/SLIC')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/TI/TIN/SLIC')
             ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_definition_key', 'SLIC');
     }
 
@@ -476,6 +476,79 @@ class AccountingOcrApiTest extends TestCase
             'lines' => $lines,
             'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 50, 'total_tokens' => 150],
         ], $overrides);
+    }
+
+    public function test_it_resolves_msic_and_returns_system_usage_examples(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense', 'Invoice'),
+            $this->line('BS/CA/CNB/BANK/10000', 0, 100, 'Paid', 'Bank payment'),
+        ]));
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(),
+            'accounts' => json_encode($this->accounts()),
+            'msic_code' => '01111',
+            'additional_msic_codes' => '["62010"]',
+            'business_description' => 'We grow maize and develop software.',
+            'posting_date' => '2026-10-07',
+        ])->assertOk()
+            ->assertJsonPath('data.business_context.msic.0.code', '01111')
+            ->assertJsonPath('data.business_context.msic.0.description', 'Growing of maize')
+            ->assertJsonPath('data.business_context.msic.1.description', 'Computer programming activities')
+            ->assertJsonPath('data.journal_entry.lines.0.account_guidance.parent_code', 'PL/TE/TEX/OPEX')
+            ->assertJsonCount(1, 'data.journal_entry.lines.0.account_guidance.usage_examples');
+    }
+
+    public function test_it_rejects_unknown_msic_and_invalid_posting_dates(): void
+    {
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(), 'accounts' => $this->accounts(),
+            'msic_code' => '99998', 'additional_msic_codes' => ['62010', 'bad'],
+            'posting_date' => '2026-02-30',
+        ])->assertStatus(422)->assertJsonValidationErrors(['msic_code', 'additional_msic_codes.1', 'posting_date']);
+    }
+
+    public function test_it_exposes_the_full_pdf_account_library(): void
+    {
+        $this->getJson('/api/ocr/accounting/accounts')->assertOk()
+            ->assertJsonCount(80, 'data.accounts')
+            ->assertJsonPath('data.accounts.BS/CA/ORV/PRMT.subtype', 'prepayment')
+            ->assertJsonPath('data.accounts.PL/TI/TIN/SLIC.type', 'revenue');
+    }
+
+    public function test_it_renders_the_updated_accounting_documentation(): void
+    {
+        $this->withSession(['docs_unlocked' => true])->get('/docs')->assertOk()
+            ->assertSee('Account category library')->assertSee('additional_msic_codes')
+            ->assertSee('prepayment_assessment');
+    }
+
+    public function test_it_reviews_matched_prepaid_accounts_without_generating_future_journals(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/CA/ORV/PRMT/10000', 'name' => 'Prepaid Insurance', 'type' => 'asset', 'subtype' => 'other'];
+        $this->bindPayload($this->payload([
+            $this->line('BS/CA/ORV/PRMT/10000', 1200, 0, 'Future insurance', 'Annual insurance'),
+            $this->line('BS/CA/CNB/BANK/10000', 0, 1200, 'Paid', 'Bank payment'),
+        ], [
+            'total' => 1200, 'subtotal' => 1200, 'payment_status' => 'paid',
+            'payment_status_evidence' => 'Paid RM1200',
+            'service_periods' => [[
+                'description' => 'Insurance', 'amount' => 1200,
+                'start_date' => '2027-01-01', 'end_date' => '2027-12-31',
+                'period_kind' => 'service_coverage', 'evidence' => 'Coverage Jan-Dec 2027',
+                'prepayment_candidate' => false,
+            ]],
+        ]));
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(), 'accounts' => $accounts, 'posting_date' => '2026-10-07',
+        ])->assertOk()
+            ->assertJsonPath('validation.is_postable', false)
+            ->assertJsonPath('data.prepayment_assessment.has_prepayment_account', true)
+            ->assertJsonPath('data.prepayment_assessment.service_periods.0.relation_to_posting_date', 'future')
+            ->assertJsonPath('data.prepayment_assessment.service_periods.0.prepayment_candidate', true)
+            ->assertJsonPath('data.prepayment_assessment.schedule_generated', false)
+            ->assertJsonCount(2, 'data.journal_entry.lines');
     }
 
     /** @return array<string, mixed> */

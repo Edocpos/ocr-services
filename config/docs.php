@@ -208,8 +208,22 @@ return [
             [
                 'id' => 'accounting-ocr',
                 'name' => 'Accounting classification OCR',
-                'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a balanced journal proposal with Acc01 parent-category recommendations when needed. Final leaf codes are never invented by OCR.',
+                'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a journal proposal with PDF-hierarchy account guidance, MSIC business context and prepayment review. New account recommendations use canonical PDF prefixes; matched legacy codes are preserved. Final leaf codes are never invented by OCR.',
                 'endpoints' => [
+                    [
+                        'id' => 'get-accounting-accounts', 'title' => 'Account category library',
+                        'method' => 'GET', 'path' => '/api/ocr/accounting/accounts', 'tag' => 'Reference',
+                        'content_type' => 'application/json', 'rate_limit' => ':accounting_rate_limit requests/minute/IP',
+                        'request_fields' => [],
+                        'curl_example' => "curl ':app_url/api/ocr/accounting/accounts'",
+                        'responses' => [[
+                            'label' => '200 OK — Full library (80 categories; abbreviated example)', 'status' => 200,
+                            'json' => ['data' => ['version' => 'acc01-2.0-hierarchy-1', 'accounts' => [
+                                'BS/CA/ORV/PRMT' => ['name' => 'Prepayments', 'definition' => 'Advance payments for future goods or service coverage', 'usage_examples' => ['Annual insurance paid before coverage is consumed'], 'exclusions' => 'Exclude refundable security deposits and already consumed services.', 'type' => 'asset', 'subtype' => 'prepayment', 'normal_balance' => 'debit'],
+                            ]]],
+                        ]],
+                        'error_codes' => [],
+                    ],
                     [
                         'id' => 'post-ocr-accounting',
                         'title' => 'Process accounting OCR',
@@ -221,7 +235,11 @@ return [
                         'request_fields' => [
                             ['field' => 'document', 'type' => 'file', 'required' => true, 'notes' => 'PDF, JPG, PNG or WebP. Max 10 MB. One logical transaction.'],
                             ['field' => 'company', 'type' => 'JSON/string', 'required' => false, 'notes' => 'JSON company snapshot or free-form context, forwarded as supplied with no required schema. Used to determine document direction.'],
-                            ['field' => 'accounts', 'type' => 'JSON array', 'required' => true, 'notes' => '1–500 accounts with code, name, type, subtype, and optional aliases.'],
+                            ['field' => 'msic_code', 'type' => 'string', 'required' => false, 'notes' => 'Primary company MSIC, exactly five digits including leading zeros; validated against the local catalogue. 00000 means not applicable.'],
+                            ['field' => 'additional_msic_codes', 'type' => 'JSON array', 'required' => false, 'notes' => 'Up to 10 additional MSIC strings. Only selected codes and resolved descriptions are sent to AI.'],
+                            ['field' => 'business_description', 'type' => 'string', 'required' => false, 'notes' => 'Actual business operations; max 2000 characters. Industry context does not determine posting by itself.'],
+                            ['field' => 'posting_date', 'type' => 'YYYY-MM-DD', 'required' => false, 'notes' => 'Date against which service coverage is assessed. Falls back to the extracted transaction date, never the server date.'],
+                            ['field' => 'accounts', 'type' => 'JSON array', 'required' => true, 'notes' => '1–500 accounts with code, name, type, subtype, and optional aliases, purpose (max 1000 characters), usage_examples (up to 3 strings, max 500 characters each). Recognised prefixes link to the full system account dictionary. Subtypes also accept prepayment, supplier_advance, customer_advance, refundable_deposit, accrual, other_payable, income_tax_asset and income_tax_payable.'],
                         ],
                         'curl_example' => "curl --location ':app_url/api/ocr/accounting' \\\n  --form 'document=@\"/absolute/path/to/voucher.pdf\"' \\\n  --form 'company={\"name\":\"ACME SDN BHD\",\"registration_no\":\"202301012345\"}' \\\n  --form 'accounts=[{\"code\":\"BS/CA/CNB/BANK/10000\",\"name\":\"Maybank\",\"type\":\"asset\",\"subtype\":\"bank\"}]'",
                         'responses' => [
@@ -242,11 +260,21 @@ return [
                                             'total' => 100.00,
                                         ],
                                         'classification' => ['voucher_type' => 'payment_voucher'],
+                                        'business_context' => ['msic' => [], 'business_description' => null, 'posting_date' => null],
+                                        'prepayment_assessment' => [
+                                            'status' => 'no_prepayment_indicated', 'posting_date' => '2026-09-17',
+                                            'posting_date_source' => 'transaction_date', 'payment_status' => 'paid',
+                                            'payment_status_evidence' => 'Paid via Maybank', 'service_periods' => [],
+                                            'has_prepayment_account' => false, 'requires_manual_review' => false, 'schedule_generated' => false,
+                                        ],
                                         'journal_entry' => [
                                             'lines' => [
                                                 [
                                                     'account_code' => 'PL/OE/OEX/OPEX/10000',
                                                     'account_name' => 'Office Expenses',
+                                                    'account_subtype' => 'other',
+                                                    'account_guidance' => ['parent_code' => 'PL/TE/TEX/OPEX', 'name' => 'Other operating expenses', 'definition' => 'Other costs of primary business operations', 'usage_examples' => ['Operating service expense'], 'exclusions' => 'Exclude administration, finance, inventory, assets and unconsumed prepaid coverage.', 'type' => 'expense', 'subtype' => 'other', 'normal_balance' => 'debit'],
+                                                    'account_purpose' => null, 'account_usage_examples' => [],
                                                     'debit' => 100.00,
                                                     'credit' => 0.00,
                                                     'match_status' => 'matched',

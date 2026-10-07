@@ -45,13 +45,18 @@ class GeminiAccountingOcrClientTest extends TestCase
             'image/png',
             [['code' => 'BANK-1', 'name' => 'Bank', 'type' => 'asset', 'subtype' => 'bank']],
             'ACME SDN BHD - free form company context',
+            ['msic' => [['code' => '01111', 'description' => 'Growing of maize']], 'posting_date' => '2026-10-07'],
         );
 
         $this->assertSame(1, $result['transaction_count']);
         $this->assertSame(150, $result['usage']['total_tokens']);
         Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), 'test-model:generateContent')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'BANK-1')
-            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'ACME SDN BHD - free form company context'));
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'ACME SDN BHD - free form company context')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Growing of maize')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'PL/TI/TIN/SLIC')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Annual insurance paid before coverage is consumed')
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.service_periods.type') === 'array');
     }
 
     public function test_it_rejects_malformed_provider_json(): void

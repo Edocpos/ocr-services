@@ -31,6 +31,7 @@ class AccountingOcrController extends Controller
                 $request->accounts(),
                 $request->companyContext(),
                 $requestId,
+                $request->accountingContext(),
             ));
         } catch (AccountingOcrException $exception) {
             return response()->json($exception->toArray(), $exception->status);

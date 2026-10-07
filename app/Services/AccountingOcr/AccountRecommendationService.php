@@ -19,15 +19,7 @@ class AccountRecommendationService
         }
 
         $metadata = $this->registry->metadata($canonical);
-        if ($metadata['subtype'] === 'trade_payable') {
-            $canonical = 'BS/CL/TPY/TPTC';
-            $metadata = $this->registry->metadata($canonical);
-        } elseif ($metadata['subtype'] === 'trade_receivable') {
-            $canonical = 'BS/CA/TRV/TRDB';
-            $metadata = $this->registry->metadata($canonical);
-        }
-
-        $prefix = $this->registry->preferredPrefix($canonical, $accounts);
+        $prefix = $canonical;
         $parts = explode('/', $prefix);
 
         return [

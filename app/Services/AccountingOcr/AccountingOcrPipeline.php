@@ -21,7 +21,7 @@ class AccountingOcrPipeline
      * @param  list<array<string, mixed>>  $accounts
      * @return array<string, mixed>
      */
-    public function process(UploadedFile $document, array $accounts, ?string $companyContext, string $requestId): array
+    public function process(UploadedFile $document, array $accounts, ?string $companyContext, string $requestId, array $context = []): array
     {
         $path = $document->getRealPath();
         $content = $path === false ? false : file_get_contents($path);
@@ -42,7 +42,7 @@ class AccountingOcrPipeline
             'account_count' => count($accounts),
         ]);
 
-        $payload = $this->client->extract($content, $mime, $accounts, $companyContext);
+        $payload = $this->client->extract($content, $mime, $accounts, $companyContext, $context);
         $transactionCount = max(0, (int) ($payload['transaction_count'] ?? 0));
         if ($transactionCount > 1) {
             throw AccountingOcrException::multipleTransactions();
@@ -51,6 +51,7 @@ class AccountingOcrPipeline
             throw AccountingOcrException::unreadable();
         }
 
+        $registry = new AccountCodeRegistry;
         $accountMap = [];
         foreach ($accounts as $account) {
             $accountMap[strtoupper(trim((string) $account['code']))] = $account;
@@ -94,7 +95,11 @@ class AccountingOcrPipeline
             $matchStatus = 'matched';
 
             if ($matched !== null) {
-                $subtype = (string) $matched['subtype'];
+                $guidance = $registry->guidance($registry->prefixForAccount((string) $matched['code']));
+                $subtype = (string) ($guidance['subtype'] ?? $matched['subtype']);
+                if ($guidance !== null && $matched['type'] !== $guidance['type']) {
+                    $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'account_type_conflicts_with_prefix', 'The submitted account type conflicts with the PDF category.');
+                }
             } else {
                 if ($selected !== '') {
                     $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'invalid_selected_account', 'The provider selected an account code that was not supplied; it was rejected.');
@@ -120,6 +125,10 @@ class AccountingOcrPipeline
                 $hasTaxLine = true;
             }
 
+            $guidance = $matched !== null
+                ? $registry->guidance($registry->prefixForAccount((string) $matched['code']))
+                : $registry->guidance($recommendation['parent_code'] ?? null);
+
             $journalLines[] = [
                 'account_code' => $matched['code'] ?? null,
                 'account_name' => $matched['name'] ?? ($recommendation !== null
@@ -128,6 +137,10 @@ class AccountingOcrPipeline
                 'debit' => $debit,
                 'credit' => $credit,
                 'match_status' => $matchStatus,
+                'account_subtype' => $subtype,
+                'account_guidance' => $guidance,
+                'account_purpose' => $matched['purpose'] ?? null,
+                'account_usage_examples' => $matched['usage_examples'] ?? [],
                 'confidence' => $lineConfidence,
                 'reason' => trim((string) ($sourceLine['reason'] ?? '')),
                 'evidence' => trim((string) ($sourceLine['evidence'] ?? '')),
@@ -178,6 +191,8 @@ class AccountingOcrPipeline
             $warnings[] = $this->issue('document', 'low_confidence', 'The accounting extraction confidence is below the configured threshold.');
         }
 
+        $prepayment = (new PrepaymentAssessment)->assess($payload, $journalLines, $context, $warnings);
+
         $requiresReview = $hasRecommendation || $hasUnmatched || $errors !== [] || $warnings !== [];
         $isPostable = $isBalanced && ! $requiresReview;
         $usage = $this->usageEstimator->estimate(1, is_array($payload['usage'] ?? null) ? $payload['usage'] : null, 'gemini');
@@ -196,6 +211,8 @@ class AccountingOcrPipeline
             'data' => [
                 'extracted' => $extracted,
                 'classification' => ['voucher_type' => $voucherType],
+                'business_context' => $context,
+                'prepayment_assessment' => $prepayment,
                 'journal_entry' => [
                     'lines' => $journalLines,
                     'total_debit' => $totalDebit,
@@ -216,6 +233,7 @@ class AccountingOcrPipeline
                 'provider' => 'gemini',
                 'document_type' => 'accounting',
                 'stateless' => true,
+                'account_library_version' => $registry->library()['version'],
                 'request_id' => $requestId,
             ],
         ];

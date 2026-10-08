@@ -79,7 +79,7 @@ class PrepaymentAssessment
         $hasPrepayment = false;
         $hasAdvance = false;
         foreach ($lines as $line) {
-            $prefix = $line['recommendation']['parent_code'] ?? $registry->prefixForAccount((string) ($line['account_code'] ?? ''));
+            $prefix = $line['required_account']['parent_code'] ?? $registry->prefixForAccount((string) ($line['account_code'] ?? ''));
             $subtype = $prefix === null ? ($line['account_subtype'] ?? null) : ($registry->guidance($prefix)['subtype'] ?? null);
             $hasPrepayment = $hasPrepayment || $subtype === 'prepayment';
             $hasAdvance = $hasAdvance || in_array($subtype, ['supplier_advance', 'customer_advance', 'refundable_deposit', 'accrual'], true);

@@ -4,7 +4,7 @@ namespace App\Services\AccountingOcr;
 
 class AccountCodeRegistry
 {
-    /** Compatibility for existing submitted accounts; new recommendations use the PDF hierarchy. */
+    /** Compatibility for existing submitted accounts; required classifications use the PDF hierarchy. */
     private const ALIASES = [
         'PL/OI/RIN/SLIC' => 'PL/TI/TIN/SLIC',
         'PL/OI/RIN/SVIC' => 'PL/TI/TIN/SVIC',
@@ -66,7 +66,34 @@ class AccountCodeRegistry
     public function enrichAccounts(array $accounts): array
     {
         return array_map(fn (array $account): array => array_merge($account, [
-            'category_prefix' => $this->prefixForAccount((string) $account['code']),
+            'category_prefix' => $this->accountPrefix($account),
+            'semantic_role' => $this->accountRole($account),
         ]), $accounts);
+    }
+
+    public function roles(): array
+    {
+        return array_values(array_unique([...array_column($this->library()['accounts'], 'role'), 'input_tax']));
+    }
+
+    public function accountPrefix(array $account): ?string
+    {
+        return $this->prefixForAccount((string) $account['code']) ?? $this->normalize($account['acc01_prefix'] ?? null);
+    }
+
+    public function accountRole(array $account): ?string
+    {
+        $prefix = $this->accountPrefix($account);
+        if ($prefix !== null) {
+            return $this->guidance($prefix)['role'];
+        }
+        $role = $account['role'] ?? match ($account['subtype'] ?? '') {
+            'accounts_payable' => 'trade_payable',
+            'accounts_receivable' => 'trade_receivable',
+            'other' => $account['type'] ?? null,
+            default => $account['subtype'] ?? null,
+        };
+
+        return in_array($role, $this->roles(), true) ? $role : null;
     }
 }

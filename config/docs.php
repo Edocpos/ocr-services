@@ -50,6 +50,7 @@ return [
                                     ],
                                     'validation' => [
                                         'status' => 'ok',
+                                        'final_validation_required_by' => 'Arkcloudant',
                                         'errors' => [],
                                         'warnings' => [],
                                     ],
@@ -185,6 +186,7 @@ return [
                                     ],
                                     'validation' => [
                                         'status' => 'ok',
+                                        'final_validation_required_by' => 'Arkcloudant',
                                         'errors' => [],
                                         'warnings' => [],
                                     ],
@@ -208,7 +210,7 @@ return [
             [
                 'id' => 'accounting-ocr',
                 'name' => 'Accounting classification OCR',
-                'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a journal proposal with PDF-hierarchy account guidance, MSIC business context and prepayment review. New account recommendations use canonical PDF prefixes; matched legacy codes are preserved. Final leaf codes are never invented by OCR.',
+                'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a journal proposal with PDF-hierarchy account guidance, MSIC business context and prepayment review. Required accounting roles use canonical PDF prefixes; matched legacy codes are preserved. Missing roles return ACCOUNT_NOT_AVAILABLE plus advisory account recommendations. Arkcloudant performs final validation and posting.',
                 'endpoints' => [
                     [
                         'id' => 'get-accounting-accounts', 'title' => 'Account category library',
@@ -218,8 +220,8 @@ return [
                         'curl_example' => "curl ':app_url/api/ocr/accounting/accounts'",
                         'responses' => [[
                             'label' => '200 OK — Full library (80 categories; abbreviated example)', 'status' => 200,
-                            'json' => ['data' => ['version' => 'acc01-2.0-hierarchy-1', 'accounts' => [
-                                'BS/CA/ORV/PRMT' => ['name' => 'Prepayments', 'definition' => 'Advance payments for future goods or service coverage', 'usage_examples' => ['Annual insurance paid before coverage is consumed'], 'exclusions' => 'Exclude refundable security deposits and already consumed services.', 'type' => 'asset', 'subtype' => 'prepayment', 'normal_balance' => 'debit'],
+                            'json' => ['data' => ['version' => 'acc01-2.0-semantics-2', 'accounts' => [
+                                'BS/CA/ORV/PRMT' => ['name' => 'PREPAYMENT', 'definition' => 'Payments made in advance for goods or services to be received in future.', 'usage_examples' => ['Annual insurance paid before coverage is consumed'], 'exclusions' => 'Exclude refundable security deposits and already consumed services; a billing period alone does not prove prepayment.', 'type' => 'asset', 'subtype' => 'prepayment', 'normal_balance' => 'debit', 'code' => 'BS/CA/ORV/PRMT', 'purpose' => 'Advance payments for future goods or service coverage', 'aliases' => ['Prepaid Expenses', 'Prepaid Insurance', 'Prepaid Subscription'], 'role' => 'prepayment', 'source_page' => 29],
                             ]]],
                         ]],
                         'error_codes' => [],
@@ -239,7 +241,7 @@ return [
                             ['field' => 'additional_msic_codes', 'type' => 'JSON array', 'required' => false, 'notes' => 'Up to 10 additional MSIC strings. Only selected codes and resolved descriptions are sent to AI.'],
                             ['field' => 'business_description', 'type' => 'string', 'required' => false, 'notes' => 'Actual business operations; max 2000 characters. Industry context does not determine posting by itself.'],
                             ['field' => 'posting_date', 'type' => 'YYYY-MM-DD', 'required' => false, 'notes' => 'Date against which service coverage is assessed. Falls back to the extracted transaction date, never the server date.'],
-                            ['field' => 'accounts', 'type' => 'JSON array', 'required' => true, 'notes' => '1–500 accounts with code, name, type, subtype, and optional aliases, purpose (max 1000 characters), usage_examples (up to 3 strings, max 500 characters each). Recognised prefixes link to the full system account dictionary. Subtypes also accept prepayment, supplier_advance, customer_advance, refundable_deposit, accrual, other_payable, income_tax_asset and income_tax_payable.'],
+                            ['field' => 'accounts', 'type' => 'JSON array', 'required' => true, 'notes' => '0–500 accounts with code, name, type, subtype, and optional aliases, purpose (max 1000 characters), usage_examples (up to 3 strings, max 500 characters each). Optional role and acc01_prefix support custom codes. AP/AR controls require is_control_account=true and control_role=ap/ar; no non-control substitution. Recognised prefixes derive authoritative roles from the source library. Subtypes also accept prepayment, supplier_advance, customer_advance, refundable_deposit, accrual, other_payable, income_tax_asset and income_tax_payable.'],
                         ],
                         'curl_example' => "curl --location ':app_url/api/ocr/accounting' \\\n  --form 'document=@\"/absolute/path/to/voucher.pdf\"' \\\n  --form 'company={\"name\":\"ACME SDN BHD\",\"registration_no\":\"202301012345\"}' \\\n  --form 'accounts=[{\"code\":\"BS/CA/CNB/BANK/10000\",\"name\":\"Maybank\",\"type\":\"asset\",\"subtype\":\"bank\"}]'",
                         'responses' => [
@@ -259,7 +261,7 @@ return [
                                             'tax' => 0.00,
                                             'total' => 100.00,
                                         ],
-                                        'classification' => ['voucher_type' => 'payment_voucher'],
+                                        'classification' => ['voucher_type' => 'payment_voucher', 'document_kind' => 'invoice', 'economic_event' => 'Paid office purchase', 'trade_nature' => 'non_trade', 'treatment_summary' => 'Recognise supported expense and bank payment.'],
                                         'business_context' => ['msic' => [], 'business_description' => null, 'posting_date' => null],
                                         'prepayment_assessment' => [
                                             'status' => 'no_prepayment_indicated', 'posting_date' => '2026-09-17',
@@ -273,7 +275,9 @@ return [
                                                     'account_code' => 'PL/OE/OEX/OPEX/10000',
                                                     'account_name' => 'Office Expenses',
                                                     'account_subtype' => 'other',
-                                                    'account_guidance' => ['parent_code' => 'PL/TE/TEX/OPEX', 'name' => 'Other operating expenses', 'definition' => 'Other costs of primary business operations', 'usage_examples' => ['Operating service expense'], 'exclusions' => 'Exclude administration, finance, inventory, assets and unconsumed prepaid coverage.', 'type' => 'expense', 'subtype' => 'other', 'normal_balance' => 'debit'],
+                                                    'required_account' => ['role' => 'expense', 'account_type' => 'expense', 'parent_code' => 'PL/TE/TEX/OPEX', 'account_subtype' => 'other', 'requires_control_account' => false, 'control_role' => null],
+                                                    'eligible_account_codes' => ['PL/OE/OEX/OPEX/10000'], 'error_code' => null,
+                                                    'account_guidance' => ['parent_code' => 'PL/TE/TEX/OPEX', 'name' => 'OTHER OPERATING EXPENSES', 'definition' => 'Miscellaneous operational costs not classiﬁed elsewhere.', 'usage_examples' => ['Operating service expense'], 'exclusions' => 'Exclude administration, finance, inventory, assets and unconsumed prepaid coverage.', 'type' => 'expense', 'subtype' => 'other', 'normal_balance' => 'debit', 'code' => 'PL/TE/TEX/OPEX', 'purpose' => 'Other costs of primary business operations', 'aliases' => ['Other operating expenses'], 'role' => 'expense', 'source_page' => 31],
                                                     'account_purpose' => null, 'account_usage_examples' => [],
                                                     'debit' => 100.00,
                                                     'credit' => 0.00,
@@ -286,6 +290,8 @@ return [
                                                 [
                                                     'account_code' => 'BS/CA/CNB/BANK/10000',
                                                     'account_name' => 'Maybank',
+                                                    'required_account' => ['role' => 'bank', 'account_type' => 'asset', 'parent_code' => 'BS/CA/CNB/BANK', 'account_subtype' => 'bank', 'requires_control_account' => false, 'control_role' => null],
+                                                    'eligible_account_codes' => ['BS/CA/CNB/BANK/10000'], 'error_code' => null,
                                                     'debit' => 0.00,
                                                     'credit' => 100.00,
                                                     'match_status' => 'matched',
@@ -298,10 +304,12 @@ return [
                                             'total_debit' => 100.00,
                                             'total_credit' => 100.00,
                                             'is_balanced' => true,
+                                            'is_complete' => true,
                                         ],
                                     ],
                                     'validation' => [
                                         'status' => 'ok',
+                                        'final_validation_required_by' => 'Arkcloudant',
                                         'errors' => [],
                                         'warnings' => [],
                                         'is_postable' => true,
@@ -310,12 +318,17 @@ return [
                                     'meta' => [
                                         'provider' => 'gemini',
                                         'document_type' => 'accounting',
+                                        'posting_authority' => 'Arkcloudant',
                                         'stateless' => true,
                                     ],
                                 ],
                             ],
                         ],
                         'error_codes' => [
+                            ['code' => 'ACCOUNT_NOT_AVAILABLE', 'http' => 200, 'note' => 'Proposal blocked: required role/control missing; see required_account and recommendation (suggested name, category, control role). No account created.'],
+                            ['code' => 'ACCOUNT_SELECTION_INVALID', 'http' => 200, 'note' => 'Proposal blocked: selected account is not eligible; no automatic substitution.'],
+                            ['code' => 'ACCOUNT_REQUIREMENT_INVALID', 'http' => 200, 'note' => 'Proposal blocked: missing or contradictory accounting requirement.'],
+                            ['code' => 'ACCOUNT_TREATMENT_CONFLICT', 'http' => 200, 'note' => 'Proposal blocked: trade obligation assigned to Other Creditors.'],
                             ['code' => 'multiple_transactions_detected', 'http' => 422, 'note' => 'Upload one logical transaction per request.'],
                             ['code' => 'ocr_provider_model_unavailable', 'http' => 502, 'note' => 'Configured Gemini model is unavailable.'],
                             ['code' => 'ocr_upstream_timeout', 'http' => 504, 'note' => 'Gemini timed out.'],

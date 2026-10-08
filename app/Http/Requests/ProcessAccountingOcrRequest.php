@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AccountingOcr\AccountCodeRegistry;
 use App\Services\AccountingOcr\MsicRegistry;
 use App\Support\OcrDocumentMime;
 use Illuminate\Contracts\Validation\Validator;
@@ -40,11 +41,15 @@ class ProcessAccountingOcrRequest extends FormRequest
             'business_description' => ['nullable', 'string', 'max:2000'],
             'posting_date' => ['nullable', 'date_format:Y-m-d'],
             'company' => ['nullable', 'string', 'max:10000'],
-            'accounts' => ['required', 'array', 'list', 'min:1', 'max:'.(int) config('ocr.accounting_max_accounts', 500)],
+            'accounts' => ['present', 'array', 'list', 'min:0', 'max:'.(int) config('ocr.accounting_max_accounts', 500)],
             'accounts.*.code' => ['required', 'string', 'max:100', 'distinct:strict'],
             'accounts.*.name' => ['required', 'string', 'max:255'],
             'accounts.*.type' => ['required', Rule::in(['asset', 'liability', 'equity', 'revenue', 'expense'])],
             'accounts.*.subtype' => ['required', Rule::in(['cash', 'bank', 'accounts_receivable', 'accounts_payable', 'trade_receivable', 'trade_payable', 'input_tax', 'output_tax', 'prepayment', 'supplier_advance', 'customer_advance', 'refundable_deposit', 'accrual', 'other_payable', 'income_tax_asset', 'income_tax_payable', 'other'])],
+            'accounts.*.role' => ['sometimes', 'nullable', Rule::in((new AccountCodeRegistry)->roles())],
+            'accounts.*.acc01_prefix' => ['sometimes', 'nullable', Rule::in(array_keys((new AccountCodeRegistry)->library()['accounts']))],
+            'accounts.*.is_control_account' => ['sometimes', 'boolean'],
+            'accounts.*.control_role' => ['sometimes', 'nullable', Rule::in(['ap', 'ar'])],
             'accounts.*.purpose' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'accounts.*.usage_examples' => ['sometimes', 'array', 'list', 'max:3'],
             'accounts.*.usage_examples.*' => ['string', 'max:500'],
@@ -94,6 +99,30 @@ class ProcessAccountingOcrRequest extends FormRequest
                 $seenCodes[$normalizedCode] = true;
             }
 
+            foreach ((array) $this->input('accounts', []) as $index => $account) {
+                if (! is_array($account)) {
+                    continue;
+                }
+                $isControl = filter_var($account['is_control_account'] ?? false, FILTER_VALIDATE_BOOL);
+                if ($isControl && ! in_array($account['control_role'] ?? null, ['ap', 'ar'], true)) {
+                    $validator->errors()->add('accounts.'.$index.'.control_role', 'An AP or AR control role is required for a control account.');
+                }
+                if (! $isControl && ($account['control_role'] ?? null) !== null) {
+                    $validator->errors()->add('accounts.'.$index.'.is_control_account', 'An account with a control role must explicitly be marked as a control account.');
+                }
+                if (is_string($account['code'] ?? null)) {
+                    $registry = new AccountCodeRegistry;
+                    $prefix = $registry->prefixForAccount($account['code']) ?? (is_string($account['acc01_prefix'] ?? null) ? $registry->normalize($account['acc01_prefix']) : null);
+                    $guidance = $registry->guidance($prefix);
+                    if ($guidance !== null && isset($account['role']) && $account['role'] !== $guidance['role']) {
+                        $validator->errors()->add('accounts.'.$index.'.role', 'The declared role conflicts with the ACC01 source category.');
+                    }
+                    if ($isControl && $guidance !== null && $guidance['role'] !== (($account['control_role'] ?? null) === 'ap' ? 'trade_payable' : 'trade_receivable')) {
+                        $validator->errors()->add('accounts.'.$index.'.control_role', 'The control role conflicts with the ACC01 category.');
+                    }
+                }
+            }
+
             $file = $this->file('document');
             if ($file === null || $file->getRealPath() === false) {
                 return;
@@ -115,7 +144,10 @@ class ProcessAccountingOcrRequest extends FormRequest
     public function accounts(): array
     {
         return array_map(
-            fn (array $account): array => array_intersect_key($account, array_flip(['code', 'name', 'type', 'subtype', 'aliases', 'purpose', 'usage_examples'])),
+            fn (array $account): array => array_merge(
+                array_intersect_key($account, array_flip(['code', 'name', 'type', 'subtype', 'aliases', 'purpose', 'usage_examples', 'role', 'acc01_prefix', 'control_role'])),
+                ['is_control_account' => filter_var($account['is_control_account'] ?? false, FILTER_VALIDATE_BOOL)],
+            ),
             array_values($this->validated('accounts')),
         );
     }

@@ -13,7 +13,8 @@ class AccountingOcrPipeline
 {
     public function __construct(
         private readonly AccountingOcrClient $client,
-        private readonly AccountRecommendationService $recommendations,
+        private readonly AccountRequirementMatcher $accountMatcher,
+        private readonly AccountRecommendationService $accountRecommendations,
         private readonly OcrUsageEstimator $usageEstimator,
     ) {}
 
@@ -52,18 +53,24 @@ class AccountingOcrPipeline
         }
 
         $registry = new AccountCodeRegistry;
-        $accountMap = [];
-        foreach ($accounts as $account) {
-            $accountMap[strtoupper(trim((string) $account['code']))] = $account;
-        }
         $errors = [];
         $warnings = [];
         $journalLines = [];
-        $hasRecommendation = false;
         $hasUnmatched = false;
         $cashDebit = 0.0;
         $cashCredit = 0.0;
         $hasTaxLine = false;
+        $classificationComplete = in_array($payload['document_kind'] ?? null, ['invoice', 'debit_note', 'credit_note', 'bill', 'receipt', 'insurance', 'other'], true)
+            && in_array($payload['trade_nature'] ?? null, ['trade', 'non_trade', 'mixed'], true)
+            && $this->stringOrNull($payload['economic_event'] ?? null) !== null
+            && $this->stringOrNull($payload['treatment_summary'] ?? null) !== null;
+        if (! $classificationComplete) {
+            $warnings[] = $this->issue('classification', 'economic_classification_unclear', 'Document event or trade nature is unclear; Arkcloudant must review the treatment.');
+        }
+        if (in_array($payload['document_kind'] ?? null, ['invoice', 'debit_note', 'credit_note', 'bill', 'insurance'], true)
+            && ($payload['payment_status'] ?? 'unknown') === 'unknown') {
+            $warnings[] = $this->issue('payment_status', 'payment_status_unclear', 'Payment is not established by document terms or bank details; confirm settlement status before posting.');
+        }
 
         foreach (array_values($payload['lines']) as $index => $sourceLine) {
             if (! is_array($sourceLine)) {
@@ -88,33 +95,25 @@ class AccountingOcrPipeline
                 $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'missing_audit_support', 'The journal line is missing a posting reason or supporting document evidence.');
             }
 
-            $selected = strtoupper(trim((string) ($sourceLine['selected_account_code'] ?? '')));
-            $matched = $selected !== '' && isset($accountMap[$selected]) ? $accountMap[$selected] : null;
-            $recommendation = null;
-            $subtype = null;
+            $match = $this->accountMatcher->match($sourceLine, $accounts);
+            $matched = $match['account'];
+            $requiredAccount = $match['requirement'];
+            if (($payload['trade_nature'] ?? null) === 'trade' && $requiredAccount['role'] === 'other_payable') {
+                $matched = null;
+                $match['error_code'] = 'ACCOUNT_TREATMENT_CONFLICT';
+            }
+            $guidance = $registry->guidance($requiredAccount['parent_code']);
+            $subtype = $guidance['subtype'] ?? $requiredAccount['role'];
             $matchStatus = 'matched';
-
-            if ($matched !== null) {
-                $guidance = $registry->guidance($registry->prefixForAccount((string) $matched['code']));
-                $subtype = (string) ($guidance['subtype'] ?? $matched['subtype']);
-                if ($guidance !== null && $matched['type'] !== $guidance['type']) {
-                    $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'account_type_conflicts_with_prefix', 'The submitted account type conflicts with the PDF category.');
-                }
-            } else {
-                if ($selected !== '') {
-                    $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'invalid_selected_account', 'The provider selected an account code that was not supplied; it was rejected.');
-                }
-
-                $recommendation = $this->recommendations->recommend($sourceLine, $accounts);
-                if ($recommendation !== null) {
-                    $hasRecommendation = true;
-                    $matchStatus = 'new_account_recommended';
-                    $subtype = (string) $recommendation['account_subtype'];
-                } else {
-                    $hasUnmatched = true;
-                    $matchStatus = 'unmatched';
-                    $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'account_unmatched', 'No suitable submitted account or valid account-code recommendation was available.');
-                }
+            if ($match['error_code'] !== null) {
+                $hasUnmatched = true;
+                $matchStatus = strtolower($match['error_code']);
+                $errors[] = $this->issue('journal_entry.lines.'.($index + 1), $match['error_code'], match ($match['error_code']) {
+                    'ACCOUNT_NOT_AVAILABLE' => 'No supplied account satisfies the required accounting classification and control role. Arkcloudant must resolve this requirement before posting.',
+                    'ACCOUNT_SELECTION_INVALID' => 'The selected account does not satisfy the required role. Eligible accounts exist, but no account was substituted automatically.',
+                    'ACCOUNT_TREATMENT_CONFLICT' => 'A normal trade obligation cannot be classified as OTHER CREDITORS; review the required trade payable control role.',
+                    default => 'The provider did not supply a valid accounting requirement before selecting an account.',
+                });
             }
 
             if (in_array($subtype, ['cash', 'bank'], true)) {
@@ -125,26 +124,25 @@ class AccountingOcrPipeline
                 $hasTaxLine = true;
             }
 
-            $guidance = $matched !== null
-                ? $registry->guidance($registry->prefixForAccount((string) $matched['code']))
-                : $registry->guidance($recommendation['parent_code'] ?? null);
-
             $journalLines[] = [
                 'account_code' => $matched['code'] ?? null,
-                'account_name' => $matched['name'] ?? ($recommendation !== null
-                    ? $this->recommendedAccountName($sourceLine, $recommendation, $payload)
-                    : null),
+                'account_name' => $matched['name'] ?? null,
                 'debit' => $debit,
                 'credit' => $credit,
                 'match_status' => $matchStatus,
                 'account_subtype' => $subtype,
+                'required_account' => $requiredAccount,
+                'eligible_account_codes' => $match['available_codes'],
+                'error_code' => $match['error_code'],
                 'account_guidance' => $guidance,
                 'account_purpose' => $matched['purpose'] ?? null,
                 'account_usage_examples' => $matched['usage_examples'] ?? [],
                 'confidence' => $lineConfidence,
                 'reason' => trim((string) ($sourceLine['reason'] ?? '')),
                 'evidence' => trim((string) ($sourceLine['evidence'] ?? '')),
-                'recommendation' => $recommendation,
+                'recommendation' => $match['error_code'] === 'ACCOUNT_NOT_AVAILABLE'
+                    ? $this->accountRecommendations->recommend($sourceLine, $requiredAccount)
+                    : null,
             ];
         }
 
@@ -168,7 +166,7 @@ class AccountingOcrPipeline
             $warnings[] = $this->issue('currency', 'foreign_currency_requires_review', 'Foreign currency was preserved without calculating a base-currency exchange rate.');
         }
         if (($extracted['tax'] ?? 0) > 0 && ! $hasTaxLine) {
-            $warnings[] = $this->issue('tax', 'tax_account_missing', 'Explicit tax was detected, but no tax account line was matched or recommended.');
+            $warnings[] = $this->issue('tax', 'tax_account_missing', 'Explicit tax was detected, but no tax account line was matched.');
         }
 
         $cashNet = round($cashDebit - $cashCredit, 2);
@@ -183,7 +181,7 @@ class AccountingOcrPipeline
             $warnings[] = $this->issue('voucher_type', 'cash_bank_transfer', 'The entry transfers value between cash or bank accounts and is classified as a general voucher.');
         }
         if ($cashDebit === 0.0 && $cashCredit === 0.0 && ($extracted['payment_method'] !== null || $extracted['payment_reference'] !== null)) {
-            $warnings[] = $this->issue('voucher_type', 'cash_direction_unclear', 'Payment details were detected without a matched or recommended cash/bank account.');
+            $warnings[] = $this->issue('voucher_type', 'cash_direction_unclear', 'Payment details were detected without a matched cash/bank account.');
         }
 
         $overallConfidence = $this->confidence($payload['overall_confidence'] ?? null);
@@ -193,7 +191,7 @@ class AccountingOcrPipeline
 
         $prepayment = (new PrepaymentAssessment)->assess($payload, $journalLines, $context, $warnings);
 
-        $requiresReview = $hasRecommendation || $hasUnmatched || $errors !== [] || $warnings !== [];
+        $requiresReview = $hasUnmatched || $errors !== [] || $warnings !== [];
         $isPostable = $isBalanced && ! $requiresReview;
         $usage = $this->usageEstimator->estimate(1, is_array($payload['usage'] ?? null) ? $payload['usage'] : null, 'gemini');
 
@@ -210,7 +208,13 @@ class AccountingOcrPipeline
         return [
             'data' => [
                 'extracted' => $extracted,
-                'classification' => ['voucher_type' => $voucherType],
+                'classification' => [
+                    'voucher_type' => $voucherType,
+                    'document_kind' => $payload['document_kind'] ?? 'unknown',
+                    'economic_event' => $this->stringOrNull($payload['economic_event'] ?? null),
+                    'trade_nature' => $payload['trade_nature'] ?? 'unknown',
+                    'treatment_summary' => $this->stringOrNull($payload['treatment_summary'] ?? null),
+                ],
                 'business_context' => $context,
                 'prepayment_assessment' => $prepayment,
                 'journal_entry' => [
@@ -218,6 +222,7 @@ class AccountingOcrPipeline
                     'total_debit' => $totalDebit,
                     'total_credit' => $totalCredit,
                     'is_balanced' => $isBalanced,
+                    'is_complete' => ! $hasUnmatched,
                 ],
             ],
             'validation' => [
@@ -225,12 +230,14 @@ class AccountingOcrPipeline
                 'errors' => $errors,
                 'warnings' => $warnings,
                 'is_postable' => $isPostable,
+                'final_validation_required_by' => 'Arkcloudant',
                 'requires_manual_review' => $requiresReview,
             ],
             'confidence' => ['overall' => $overallConfidence],
             'usage' => $usage,
             'meta' => [
                 'provider' => 'gemini',
+                'posting_authority' => 'Arkcloudant',
                 'document_type' => 'accounting',
                 'stateless' => true,
                 'account_library_version' => $registry->library()['version'],
@@ -246,6 +253,10 @@ class AccountingOcrPipeline
 
         return [
             'transaction_date' => $this->stringOrNull($payload['transaction_date'] ?? null),
+            'invoice_date' => $this->stringOrNull($payload['invoice_date'] ?? null),
+            'event_date' => $this->stringOrNull($payload['event_date'] ?? null),
+            'payment_date' => $this->stringOrNull($payload['payment_date'] ?? null),
+            'original_document_reference' => $this->stringOrNull($payload['original_document_reference'] ?? null),
             'reference_number' => $this->stringOrNull($payload['reference_number'] ?? null),
             'counterparty' => $this->stringOrNull($payload['counterparty'] ?? null),
             'description' => $this->stringOrNull($payload['description'] ?? null),
@@ -304,22 +315,5 @@ class AccountingOcrPipeline
         return in_array($direction, ['incoming', 'outgoing', 'internal', 'unknown'], true)
             ? $direction
             : 'unknown';
-    }
-
-    /** @param array<string, mixed> $line */
-    private function recommendedAccountName(array $line, array $recommendation, array $payload): string
-    {
-        $counterparty = $this->stringOrNull($payload['counterparty'] ?? null);
-        $direction = $this->documentDirection($payload['document_direction'] ?? null);
-        $subtype = (string) ($recommendation['account_subtype'] ?? '');
-
-        if ($counterparty !== null && (
-            ($direction === 'outgoing' && $subtype === 'trade_receivable')
-            || ($direction === 'incoming' && $subtype === 'trade_payable')
-        )) {
-            return $counterparty;
-        }
-
-        return $this->stringOrNull($line['suggested_name'] ?? null) ?? 'Recommended Account';
     }
 }

@@ -3,7 +3,6 @@
 namespace Tests\Unit\AccountingOcr;
 
 use App\Services\AccountingOcr\AccountCodeRegistry;
-use App\Services\AccountingOcr\AccountRecommendationService;
 use App\Services\AccountingOcr\PrepaymentAssessment;
 use PHPUnit\Framework\TestCase;
 
@@ -64,9 +63,8 @@ class PrepaymentAssessmentTest extends TestCase
     public function test_customer_advances_and_other_creditors_keep_their_own_category(): void
     {
         $registry = new AccountCodeRegistry;
-        $service = new AccountRecommendationService($registry);
         foreach (['BS/CL/TPY/TPTD', 'BS/CL/OPY/OPCR', 'BS/CA/TRV/TRDP'] as $prefix) {
-            $this->assertSame($prefix, $service->recommend(['suggested_prefix' => $prefix], [])['parent_code']);
+            $this->assertSame($prefix, $registry->guidance($prefix)['parent_code']);
         }
         $this->assertSame('income_tax_asset', $registry->metadata('BS/CA/CTX/CYTX')['subtype']);
     }

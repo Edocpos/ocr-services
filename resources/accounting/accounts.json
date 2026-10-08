@@ -1,886 +1,1456 @@
 {
-  "version": "acc01-2.0-hierarchy-1",
+  "version": "acc01-2.0-semantics-2",
   "source": "ACC01 v2.0, 2026-01-08, hierarchy tables on PDF pages 25-34",
   "accounts": {
     "BS/NA/PPE/LAND": {
-      "name": "Operational land",
-      "definition": "Land owned for business use",
+      "name": "LAND",
+      "definition": "The ground and soil owned by the company, often held as a long-term asset.",
       "usage_examples": [
         "Office land purchase"
       ],
       "exclusions": "Exclude investment land and land held for resale.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/LAND",
+      "purpose": "Land owned for business use",
+      "aliases": [
+        "Operational land"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/BLDG": {
-      "name": "Buildings",
-      "definition": "Owned buildings used in operations",
+      "name": "BUILDINGS",
+      "definition": "Structures such as o\ufb03ces, factories, or warehouses owned by the business.",
       "usage_examples": [
         "Company warehouse purchase"
       ],
       "exclusions": "Exclude rent and investment property.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/BLDG",
+      "purpose": "Owned buildings used in operations",
+      "aliases": [
+        "Buildings"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/INDB": {
-      "name": "Industrial buildings",
-      "definition": "Owned buildings used for manufacturing",
+      "name": "INDUSTRY BUILDINGS",
+      "definition": "Buildings speci\ufb01cally used for industrial or manufacturing purposes.",
       "usage_examples": [
         "Factory building purchase"
       ],
       "exclusions": "Exclude production machinery.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/INDB",
+      "purpose": "Owned buildings used for manufacturing",
+      "aliases": [
+        "Industrial buildings"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/OFFB": {
-      "name": "Office buildings",
-      "definition": "Owned administrative buildings",
+      "name": "OFFICE BUILDINGS",
+      "definition": "Buildings primarily used for administrative and o\ufb03ce activities.",
       "usage_examples": [
         "Head office purchase"
       ],
       "exclusions": "Exclude office rental.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/OFFB",
+      "purpose": "Owned administrative buildings",
+      "aliases": [
+        "Office buildings"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/PLNT": {
-      "name": "Plant",
-      "definition": "Capital production facilities and installations",
+      "name": "PLANT",
+      "definition": "Industrial facilities and installations used in production processes.",
       "usage_examples": [
         "Production plant installation"
       ],
       "exclusions": "Exclude consumables and routine repairs.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/PLNT",
+      "purpose": "Capital production facilities and installations",
+      "aliases": [
+        "Plant"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/MCHN": {
-      "name": "Machinery",
-      "definition": "Machines held for operational use",
+      "name": "MACHINERY",
+      "definition": "Machines used in manufacturing or operational activities.",
       "usage_examples": [
         "Production machine purchase"
       ],
       "exclusions": "Exclude machines bought for resale.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/MCHN",
+      "purpose": "Machines held for operational use",
+      "aliases": [
+        "Machinery"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/HVYE": {
-      "name": "Heavy equipment",
-      "definition": "Long-term heavy operational equipment",
+      "name": "HEAVY EQUIPMENT",
+      "definition": "Large equipment such as cranes, bulldozers, or industrial movers.",
       "usage_examples": [
         "Company crane purchase"
       ],
       "exclusions": "Exclude hired equipment charges.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/HVYE",
+      "purpose": "Long-term heavy operational equipment",
+      "aliases": [
+        "Heavy equipment"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/MTVE": {
-      "name": "Motor vehicles",
-      "definition": "Vehicles held for business use",
+      "name": "MOTOR VEHICLES",
+      "definition": "Company-owned cars, trucks, and other transport vehicles.",
       "usage_examples": [
         "Delivery van purchase"
       ],
       "exclusions": "Exclude fuel, rental and vehicles for resale.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/MTVE",
+      "purpose": "Vehicles held for business use",
+      "aliases": [
+        "Motor vehicles"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/FNFT": {
-      "name": "Furniture and fittings",
-      "definition": "Capital furniture and fixtures",
+      "name": "FURNITURE & FITTING",
+      "definition": "O\ufb03ce furniture, \ufb01xtures, and interior \ufb01ttings.",
       "usage_examples": [
         "Office desks and fitted cabinets"
       ],
       "exclusions": "Exclude consumable office supplies.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/FNFT",
+      "purpose": "Capital furniture and fixtures",
+      "aliases": [
+        "Furniture and fittings"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/OFFE": {
-      "name": "Office equipment",
-      "definition": "Capital office equipment",
+      "name": "OFFICE EQUIPMENT",
+      "definition": "Equipment used in o\ufb03ces, such as printers, copiers, and telephones.",
       "usage_examples": [
         "Office photocopier purchase"
       ],
       "exclusions": "Exclude stock bought for resale.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/OFFE",
+      "purpose": "Capital office equipment",
+      "aliases": [
+        "Office equipment"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/COMP": {
-      "name": "Computers",
-      "definition": "Computer hardware held for business use",
+      "name": "COMPUTER",
+      "definition": "Desktop, laptop, and server hardware owned by the company.",
       "usage_examples": [
         "Office laptop purchase"
       ],
       "exclusions": "Exclude hardware bought for resale and subscriptions.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/COMP",
+      "purpose": "Computer hardware held for business use",
+      "aliases": [
+        "Computers"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/SOFT": {
-      "name": "Software assets",
-      "definition": "Software meeting the company asset recognition policy",
+      "name": "SOFTWARE",
+      "definition": "Licensed software programs and applications.",
       "usage_examples": [
         "Controlled software licence acquisition"
       ],
       "exclusions": "Exclude recurring SaaS access and support; capitalisation requires review.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/SOFT",
+      "purpose": "Software meeting the company asset recognition policy",
+      "aliases": [
+        "Software assets"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/PPE/RENO": {
-      "name": "Renovation",
-      "definition": "Capital improvements to existing assets",
+      "name": "RENOVATION",
+      "definition": "Capitalized costs related to improving or upgrading existing assets.",
       "usage_examples": [
         "Major office fit-out"
       ],
       "exclusions": "Exclude routine maintenance and repairs.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/PPE/RENO",
+      "purpose": "Capital improvements to existing assets",
+      "aliases": [
+        "Renovation"
+      ],
+      "role": "ppe",
+      "source_page": 28
     },
     "BS/NA/IVM/ILND": {
-      "name": "Investment land",
-      "definition": "Land held for investment rather than operational use",
+      "name": "LAND",
+      "definition": "Land held as a long-term investment, not for operational use.",
       "usage_examples": [
         "Land held for capital appreciation"
       ],
       "exclusions": "Exclude operational land and developer trading stock.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/IVM/ILND",
+      "purpose": "Land held for investment rather than operational use",
+      "aliases": [
+        "Investment land"
+      ],
+      "role": "investment",
+      "source_page": 29
     },
     "BS/NA/IVM/IBDG": {
-      "name": "Investment buildings",
-      "definition": "Property held for rental income or appreciation",
+      "name": "BUILDINGS",
+      "definition": "Properties held for rental income, capital appreciation, or future sale.",
       "usage_examples": [
         "Investment rental property purchase"
       ],
       "exclusions": "Exclude owner-occupied buildings and property trading stock.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/IVM/IBDG",
+      "purpose": "Property held for rental income or appreciation",
+      "aliases": [
+        "Investment buildings"
+      ],
+      "role": "investment",
+      "source_page": 29
     },
     "BS/NA/IVM/IQTS": {
-      "name": "Quoted shares",
-      "definition": "Investments in publicly listed shares",
+      "name": "QUOTED SHARES",
+      "definition": "Shares of publicly listed companies traded on a stock exchange.",
       "usage_examples": [
         "Listed company share purchase"
       ],
       "exclusions": "Exclude own issued share capital.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/IVM/IQTS",
+      "purpose": "Investments in publicly listed shares",
+      "aliases": [
+        "Quoted shares"
+      ],
+      "role": "investment",
+      "source_page": 29
     },
     "BS/NA/IVM/IUTS": {
-      "name": "Unquoted shares",
-      "definition": "Investments in private company shares",
+      "name": "UNQUOTED SHARES",
+      "definition": "Shares in private companies not listed on any public stock exchange.",
       "usage_examples": [
         "Private company equity investment"
       ],
       "exclusions": "Exclude loans to the investee.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/NA/IVM/IUTS",
+      "purpose": "Investments in private company shares",
+      "aliases": [
+        "Unquoted shares"
+      ],
+      "role": "investment",
+      "source_page": 29
     },
     "BS/CA/IVT/TSTK": {
-      "name": "Trading stock",
-      "definition": "Goods held for resale in ordinary business",
+      "name": "TRADING STOCKS",
+      "definition": "Finished goods held for resale in the ordinary course of business.",
       "usage_examples": [
         "Retail goods purchased for resale"
       ],
       "exclusions": "Exclude office equipment used by the company.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/IVT/TSTK",
+      "purpose": "Goods held for resale in ordinary business",
+      "aliases": [
+        "Trading stock"
+      ],
+      "role": "inventory",
+      "source_page": 29
     },
     "BS/CA/IVT/CSTK": {
-      "name": "Consumable stock",
-      "definition": "Materials and supplies held for operational consumption",
+      "name": "CONSUMABLE STOCK",
+      "definition": "Materials and supplies used in operations but not intended for resale.",
       "usage_examples": [
         "Unused production supplies"
       ],
       "exclusions": "Exclude already consumed expenses; follow inventory policy.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/IVT/CSTK",
+      "purpose": "Materials and supplies held for operational consumption",
+      "aliases": [
+        "Consumable stock"
+      ],
+      "role": "inventory",
+      "source_page": 29
     },
     "BS/CA/TRV/TRDB": {
-      "name": "Trade debtors",
-      "definition": "Customer amounts due from ordinary credit sales",
+      "name": "TRADE DEBTORS",
+      "definition": "Amounts owed by customers from credit sales of goods or services.",
       "usage_examples": [
         "Unpaid customer invoice"
       ],
       "exclusions": "Exclude supplier advances and customer deposits received.",
       "type": "asset",
       "subtype": "trade_receivable",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/TRV/TRDB",
+      "purpose": "Customer amounts due from ordinary credit sales",
+      "aliases": [
+        "Trade Receivables",
+        "Accounts Receivable",
+        "AR"
+      ],
+      "role": "trade_receivable",
+      "source_page": 29
     },
     "BS/CA/TRV/TRDP": {
-      "name": "Supplier advances and trade deposits paid",
-      "definition": "Trade deposits paid to suppliers for future purchases",
+      "name": "TRADE DEPOSIT PAYABLES",
+      "definition": "Deposits paid to suppliers as security or advance against future purchases.",
       "usage_examples": [
         "Advance paid against stock order"
       ],
       "exclusions": "Exclude unpaid supplier balances and customer advances received; PDF label is ambiguous, use payment direction.",
       "type": "asset",
       "subtype": "supplier_advance",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/TRV/TRDP",
+      "purpose": "Trade deposits paid to suppliers for future purchases",
+      "aliases": [
+        "Supplier Advance",
+        "Trade Deposit Paid"
+      ],
+      "role": "supplier_advance",
+      "source_page": 29
     },
     "BS/CA/ORV/OTDB": {
-      "name": "Other debtors",
-      "definition": "Non-trade amounts receivable",
+      "name": "OTHER DEBTORS",
+      "definition": "Non-trade amounts receivable from parties not related to core operations.",
       "usage_examples": [
         "Non-trade recoverable advance"
       ],
       "exclusions": "Exclude ordinary customer invoices.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/ORV/OTDB",
+      "purpose": "Non-trade amounts receivable",
+      "aliases": [
+        "Other debtors"
+      ],
+      "role": "asset",
+      "source_page": 29
     },
     "BS/CA/ORV/OTDP": {
-      "name": "Refundable non-trade deposits paid",
-      "definition": "Refundable security deposits paid by the company",
+      "name": "OTHER DEPOSIT RECEIVABLES",
+      "definition": "Refundable deposits held from employees, tenants, or other third parties.",
       "usage_examples": [
         "Office tenancy security deposit"
       ],
       "exclusions": "Exclude deposits received; PDF wording conflicts with asset classification, require review.",
       "type": "asset",
       "subtype": "refundable_deposit",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/ORV/OTDP",
+      "purpose": "Refundable security deposits paid by the company",
+      "aliases": [
+        "Refundable non-trade deposits paid"
+      ],
+      "role": "refundable_deposit",
+      "source_page": 29
     },
     "BS/CA/ORV/PRMT": {
-      "name": "Prepayments",
-      "definition": "Advance payments for future goods or service coverage",
+      "name": "PREPAYMENT",
+      "definition": "Payments made in advance for goods or services to be received in future.",
       "usage_examples": [
         "Annual insurance paid before coverage is consumed"
       ],
       "exclusions": "Exclude refundable security deposits and already consumed services; a billing period alone does not prove prepayment.",
       "type": "asset",
       "subtype": "prepayment",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/ORV/PRMT",
+      "purpose": "Advance payments for future goods or service coverage",
+      "aliases": [
+        "Prepaid Expenses",
+        "Prepaid Insurance",
+        "Prepaid Subscription"
+      ],
+      "role": "prepayment",
+      "source_page": 29
     },
     "BS/CA/ORV/DIRA": {
-      "name": "Director receivables",
-      "definition": "Non-trade amounts owed to the company by directors",
+      "name": "OTHER RECEIVABLES (DIRECTOR ACCOUNT)",
+      "definition": "Amounts receivable from or payable to company directors (non-trade).",
       "usage_examples": [
         "Recoverable advance to director"
       ],
       "exclusions": "Amounts owed to directors use OPDC instead.",
       "type": "asset",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/ORV/DIRA",
+      "purpose": "Non-trade amounts owed to the company by directors",
+      "aliases": [
+        "Director receivables"
+      ],
+      "role": "asset",
+      "source_page": 29
     },
     "BS/CA/CTX/CYTX": {
-      "name": "Current-year tax paid",
-      "definition": "Current-year income tax payments recoverable or offset against tax liability",
+      "name": "CURRENT YEAR TAX PAID",
+      "definition": "Tax payments made during the current \ufb01scal year that exceed the liability, recoverable as an asset.",
       "usage_examples": [
         "Current-year income tax instalment"
       ],
       "exclusions": "Not supplier SST input tax; distinguish tax expense and tax payable.",
       "type": "asset",
       "subtype": "income_tax_asset",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/CTX/CYTX",
+      "purpose": "Current-year income tax payments recoverable or offset against tax liability",
+      "aliases": [
+        "Current-year tax paid"
+      ],
+      "role": "income_tax_asset",
+      "source_page": 29
     },
     "BS/CA/CTX/PYPX": {
-      "name": "Prior-year tax overpaid",
-      "definition": "Recoverable overpayment of prior-year income tax",
+      "name": "PREVIOUS YEAR TAX OVER PAID",
+      "definition": "Overpaid taxes from prior years that are recoverable from tax authorities.",
       "usage_examples": [
         "Prior-year income tax refund due"
       ],
       "exclusions": "Not supplier SST input tax.",
       "type": "asset",
       "subtype": "income_tax_asset",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/CTX/PYPX",
+      "purpose": "Recoverable overpayment of prior-year income tax",
+      "aliases": [
+        "Prior-year tax overpaid"
+      ],
+      "role": "income_tax_asset",
+      "source_page": 29
     },
     "BS/CA/CNB/BANK": {
-      "name": "Cash at bank",
-      "definition": "Balances and movements in company bank accounts",
+      "name": "CASH AT BANK",
+      "definition": "Funds held in checking, savings, or other bank accounts.",
       "usage_examples": [
         "Payment from Maybank current account"
       ],
       "exclusions": "Exclude overdraft liabilities; do not assume payment from invoice bank details.",
       "type": "asset",
       "subtype": "bank",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/CNB/BANK",
+      "purpose": "Balances and movements in company bank accounts",
+      "aliases": [
+        "Cash at bank"
+      ],
+      "role": "bank",
+      "source_page": 29
     },
     "BS/CA/CNB/CASH": {
-      "name": "Cash on hand",
-      "definition": "Physical cash held by the business",
+      "name": "CASH ON HAND",
+      "definition": "Physical currency and coins held by the business.",
       "usage_examples": [
         "Cash payment from petty cash"
       ],
       "exclusions": "Exclude bank transfers.",
       "type": "asset",
       "subtype": "cash",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "BS/CA/CNB/CASH",
+      "purpose": "Physical cash held by the business",
+      "aliases": [
+        "Cash on hand"
+      ],
+      "role": "cash",
+      "source_page": 29
     },
     "BS/EQ/CAP/SHCP": {
-      "name": "Share capital",
-      "definition": "Shareholder capital contributed to company",
+      "name": "SHARE CAPITAL",
+      "definition": "Capital contributed by shareholders through the issuance of shares.",
       "usage_examples": [
         "Share subscription proceeds"
       ],
       "exclusions": "Exclude loans and sales receipts.",
       "type": "equity",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/EQ/CAP/SHCP",
+      "purpose": "Shareholder capital contributed to company",
+      "aliases": [
+        "Share capital"
+      ],
+      "role": "equity",
+      "source_page": 30
     },
     "BS/EQ/CAP/POCP": {
-      "name": "Proprietor capital",
-      "definition": "Owner capital in sole proprietorship",
+      "name": "PROPRIETOR CAPITAL",
+      "definition": "Capital invested by the sole owner of a proprietorship business.",
       "usage_examples": [
         "Owner capital injection"
       ],
       "exclusions": "Exclude owner loans where separately accounted.",
       "type": "equity",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/EQ/CAP/POCP",
+      "purpose": "Owner capital in sole proprietorship",
+      "aliases": [
+        "Proprietor capital"
+      ],
+      "role": "equity",
+      "source_page": 30
     },
     "BS/EQ/CAP/PTCP": {
-      "name": "Partnership capital",
-      "definition": "Capital contributed by partners",
+      "name": "PARTNERSHIP CAPITAL",
+      "definition": "Capital contributed by partners in a partnership business.",
       "usage_examples": [
         "Partner capital contribution"
       ],
       "exclusions": "Exclude sales revenue.",
       "type": "equity",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/EQ/CAP/PTCP",
+      "purpose": "Capital contributed by partners",
+      "aliases": [
+        "Partnership capital"
+      ],
+      "role": "equity",
+      "source_page": 30
     },
     "BS/EQ/CPR/SHPM": {
-      "name": "Share premium",
-      "definition": "Share premium where applicable under entity policy",
+      "name": "SHARE PREMIUM",
+      "definition": "Amount received from shareholders in excess of the par value of shares issued.",
       "usage_examples": [
         "Share premium reserve transaction"
       ],
       "exclusions": "Do not infer premium from ordinary cash receipts; require review.",
       "type": "equity",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/EQ/CPR/SHPM",
+      "purpose": "Share premium where applicable under entity policy",
+      "aliases": [
+        "Share premium"
+      ],
+      "role": "equity",
+      "source_page": 30
     },
     "BS/EQ/CPR/RVSP": {
-      "name": "Revaluation surplus",
-      "definition": "Reserve arising from asset revaluation",
+      "name": "REVALUATION SURPLUS",
+      "definition": "Reserve created when an asset is revalued upwards, re\ufb02ecting unrealized gain.",
       "usage_examples": [
         "Approved property revaluation increase"
       ],
       "exclusions": "Exclude sale proceeds and ordinary revenue.",
       "type": "equity",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/EQ/CPR/RVSP",
+      "purpose": "Reserve arising from asset revaluation",
+      "aliases": [
+        "Revaluation surplus"
+      ],
+      "role": "equity",
+      "source_page": 30
     },
     "BS/EQ/RVR/APNL": {
-      "name": "Accumulated profit and loss",
-      "definition": "Retained cumulative profits and losses",
+      "name": "ACCUMULATED PROFIT AND LOSS",
+      "definition": "Cumulative net pro\ufb01ts or losses retained in the business, not distributed as dividends.",
       "usage_examples": [
         "Approved year-end profit transfer"
       ],
       "exclusions": "Exclude ordinary invoice revenue or expenses.",
       "type": "equity",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/EQ/RVR/APNL",
+      "purpose": "Retained cumulative profits and losses",
+      "aliases": [
+        "Accumulated profit and loss"
+      ],
+      "role": "equity",
+      "source_page": 30
     },
     "BS/NL/NBR/NCTL": {
-      "name": "Long-term bank loans",
-      "definition": "Bank borrowing payable beyond twelve months",
+      "name": "LONG TERM LOAN",
+      "definition": "Borrowings from banks or \ufb01nancial institutions with a repayment term exceeding one year.",
       "usage_examples": [
         "Long-term bank loan principal"
       ],
       "exclusions": "Exclude interest and current portion.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/NL/NBR/NCTL",
+      "purpose": "Bank borrowing payable beyond twelve months",
+      "aliases": [
+        "Long-term bank loans"
+      ],
+      "role": "liability",
+      "source_page": 30
     },
     "BS/NL/NFL/NCFL": {
-      "name": "Long-term finance lease liability",
-      "definition": "Non-current finance lease obligations",
+      "name": "LONG TERM FINANCE LEASE",
+      "definition": "Lease obligations for assets under \ufb01nance leases with terms longer than one year.",
       "usage_examples": [
         "Long-term lease principal"
       ],
       "exclusions": "Exclude lease interest; apply approved lease policy.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/NL/NFL/NCFL",
+      "purpose": "Non-current finance lease obligations",
+      "aliases": [
+        "Long-term finance lease liability"
+      ],
+      "role": "liability",
+      "source_page": 30
     },
     "BS/NL/DTX/NCDX": {
-      "name": "Deferred tax liabilities",
-      "definition": "Future tax obligations from temporary differences",
+      "name": "LONG TERM DEFERRED TAX",
+      "definition": "Tax liabilities expected to be settled in future periods beyond one year, arising from temporary differences.",
       "usage_examples": [
         "Deferred tax adjustment"
       ],
       "exclusions": "Exclude current income tax payable; require review.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/NL/DTX/NCDX",
+      "purpose": "Future tax obligations from temporary differences",
+      "aliases": [
+        "Deferred tax liabilities"
+      ],
+      "role": "liability",
+      "source_page": 30
     },
     "BS/CL/TPY/TPTC": {
-      "name": "Trade creditors",
-      "definition": "Supplier balances due for ordinary credit purchases",
+      "name": "TRADE CREDITORS",
+      "definition": "Amounts owed to suppliers for goods or services purchased on credit in the normal course of business.",
       "usage_examples": [
         "Unpaid supplier goods invoice"
       ],
       "exclusions": "Exclude customer advances and non-trade creditors.",
       "type": "liability",
       "subtype": "trade_payable",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/TPY/TPTC",
+      "purpose": "Supplier balances due for ordinary credit purchases",
+      "aliases": [
+        "Trade Payables",
+        "Accounts Payable",
+        "AP"
+      ],
+      "role": "trade_payable",
+      "source_page": 30
     },
     "BS/CL/TPY/TPTD": {
-      "name": "Customer advances and trade deposits received",
-      "definition": "Deposits received against future customer orders",
+      "name": "TRADE DEPOSIT RECEIVABLES",
+      "definition": "Deposits received from customers as advance payments or security against future orders.",
       "usage_examples": [
         "Customer pays advance before delivery"
       ],
       "exclusions": "Exclude supplier deposits paid; not earned revenue automatically.",
       "type": "liability",
       "subtype": "customer_advance",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/TPY/TPTD",
+      "purpose": "Deposits received against future customer orders",
+      "aliases": [
+        "Customer Advance",
+        "Customer Deposit Received"
+      ],
+      "role": "customer_advance",
+      "source_page": 30
     },
     "BS/CL/OPY/OPCR": {
-      "name": "Other creditors",
-      "definition": "Non-trade short-term obligations",
+      "name": "OTHER CREDITORS",
+      "definition": "Short-term payables to third parties not related to trade purchases (e.g., service providers, contractors).",
       "usage_examples": [
         "Non-trade amount owed to third party"
       ],
       "exclusions": "Exclude ordinary trade suppliers and accrued uninvoiced expenses.",
       "type": "liability",
       "subtype": "other_payable",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/OPY/OPCR",
+      "purpose": "Non-trade short-term obligations",
+      "aliases": [
+        "Other Payables",
+        "Non-trade Creditors"
+      ],
+      "role": "other_payable",
+      "source_page": 31
     },
     "BS/CL/OPY/OPDC": {
-      "name": "Director creditors",
-      "definition": "Non-trade amounts owed to directors",
+      "name": "DIRECTOR ACCOUNT (CREDITORS)",
+      "definition": "Amounts owed to company directors for loans, advances, or other transactions.",
       "usage_examples": [
         "Director lends money to company"
       ],
       "exclusions": "Exclude director receivables and equity contributions.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/OPY/OPDC",
+      "purpose": "Non-trade amounts owed to directors",
+      "aliases": [
+        "Director creditors"
+      ],
+      "role": "liability",
+      "source_page": 31
     },
     "BS/CL/OPY/OPCC": {
-      "name": "Accruals",
-      "definition": "Expenses incurred but not yet paid or invoiced at reporting date",
+      "name": "ACCRUAL",
+      "definition": "Expenses incurred but not yet paid or invoiced at the reporting date.",
       "usage_examples": [
         "Unbilled electricity consumed at month end"
       ],
       "exclusions": "Exclude future service prepayments and already booked invoices.",
       "type": "liability",
       "subtype": "accrual",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/OPY/OPCC",
+      "purpose": "Expenses incurred but not yet paid or invoiced at reporting date",
+      "aliases": [
+        "Accrued Expenses",
+        "Accrued Liabilities"
+      ],
+      "role": "accrual",
+      "source_page": 31
     },
     "BS/CL/SFL/STFL": {
-      "name": "Current finance lease liability",
-      "definition": "Lease principal due within twelve months",
+      "name": "SHORT TERM FINANCE LEASE",
+      "definition": "Current portion of obligations under \ufb01nance leases due within one year.",
       "usage_examples": [
         "Current portion of finance lease"
       ],
       "exclusions": "Exclude interest and non-current principal.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/SFL/STFL",
+      "purpose": "Lease principal due within twelve months",
+      "aliases": [
+        "Current finance lease liability"
+      ],
+      "role": "liability",
+      "source_page": 31
     },
     "BS/CL/CTL/CRTX": {
-      "name": "Current income tax payable",
-      "definition": "Current-year income tax obligation",
+      "name": "CURRENT TAX PAYABLE",
+      "definition": "Tax liabilities due for payment within the current \ufb01nancial year.",
       "usage_examples": [
         "Corporate income tax provision payable"
       ],
       "exclusions": "Use SNTP for sales and service tax, not income tax.",
       "type": "liability",
       "subtype": "income_tax_payable",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/CTL/CRTX",
+      "purpose": "Current-year income tax obligation",
+      "aliases": [
+        "Current income tax payable"
+      ],
+      "role": "income_tax_payable",
+      "source_page": 31
     },
     "BS/CL/CTL/STDF": {
-      "name": "Service tax deferred",
-      "definition": "Deferred service tax balance under applicable policy",
+      "name": "SERVICE TAX DEFERRED",
+      "definition": "Collected service tax not yet remitted to authorities.",
       "usage_examples": [
         "Deferred service tax adjustment"
       ],
       "exclusions": "Do not infer tax timing or rates; require review.",
       "type": "liability",
       "subtype": "output_tax",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/CTL/STDF",
+      "purpose": "Deferred service tax balance under applicable policy",
+      "aliases": [
+        "Service tax deferred"
+      ],
+      "role": "output_tax",
+      "source_page": 31
     },
     "BS/CL/CTL/SNTP": {
-      "name": "Sales and service tax payable",
-      "definition": "Explicit sales and service tax owed to authorities",
+      "name": "SALES AND SERVICE TAX PAYABLES",
+      "definition": "Outstanding sales tax and service tax payable to tax authorities.",
       "usage_examples": [
         "SST collected on taxable sale"
       ],
       "exclusions": "Exclude income tax and tax charged by suppliers as an automatically recoverable asset.",
       "type": "liability",
       "subtype": "output_tax",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/CTL/SNTP",
+      "purpose": "Explicit sales and service tax owed to authorities",
+      "aliases": [
+        "Sales and service tax payable"
+      ],
+      "role": "output_tax",
+      "source_page": 31
     },
     "BS/CL/SBR/TRFL": {
-      "name": "Trade finance loans",
-      "definition": "Short-term borrowing financing trade",
+      "name": "TRADE FINANCE LOAN",
+      "definition": "Short-term loans used to \ufb01nance trade activities like inventory purchase.",
       "usage_examples": [
         "Trade financing drawdown"
       ],
       "exclusions": "Exclude trade finance interest.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/SBR/TRFL",
+      "purpose": "Short-term borrowing financing trade",
+      "aliases": [
+        "Trade finance loans"
+      ],
+      "role": "liability",
+      "source_page": 31
     },
     "BS/CL/SBR/OVDF": {
-      "name": "Bank overdraft",
-      "definition": "Short-term bank overdraft liability",
+      "name": "OVERDRAFT",
+      "definition": "Short-term borrowing facility allowing withdrawal beyond account balance.",
       "usage_examples": [
         "Overdraft borrowing principal"
       ],
       "exclusions": "Exclude ordinary positive bank balance and overdraft interest.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/SBR/OVDF",
+      "purpose": "Short-term bank overdraft liability",
+      "aliases": [
+        "Bank overdraft"
+      ],
+      "role": "liability",
+      "source_page": 31
     },
     "BS/CL/SBR/SHTL": {
-      "name": "Short-term bank loans",
-      "definition": "Borrowing due within twelve months",
+      "name": "SHORT TERM LOAN",
+      "definition": "Borrowings from banks repayable within one year.",
       "usage_examples": [
         "Short-term loan principal"
       ],
       "exclusions": "Exclude loan interest.",
       "type": "liability",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "BS/CL/SBR/SHTL",
+      "purpose": "Borrowing due within twelve months",
+      "aliases": [
+        "Short-term bank loans"
+      ],
+      "role": "liability",
+      "source_page": 31
     },
     "PL/TI/TIN/SLIC": {
-      "name": "Sales income",
-      "definition": "Earned operating revenue from goods sold",
+      "name": "SALES INCOME",
+      "definition": "Revenue earned from the sale of goods.",
       "usage_examples": [
         "Product sale to customer"
       ],
       "exclusions": "Exclude customer advance before goods are delivered.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/TI/TIN/SLIC",
+      "purpose": "Earned operating revenue from goods sold",
+      "aliases": [
+        "Sales income"
+      ],
+      "role": "revenue",
+      "source_page": 31
     },
     "PL/TI/TIN/SVIC": {
-      "name": "Service income",
-      "definition": "Earned operating revenue from services supplied",
+      "name": "SERVICE INCOME",
+      "definition": "Revenue earned from providing services.",
       "usage_examples": [
         "Completed consulting service invoice"
       ],
       "exclusions": "Exclude unearned advance for future services.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/TI/TIN/SVIC",
+      "purpose": "Earned operating revenue from services supplied",
+      "aliases": [
+        "Service income"
+      ],
+      "role": "revenue",
+      "source_page": 31
     },
     "PL/TE/TEX/CSSL": {
-      "name": "Cost of sales",
-      "definition": "Direct costs attributable to goods or services sold",
+      "name": "COST OF SALES",
+      "definition": "Direct costs attributable to the production of goods sold.",
       "usage_examples": [
         "Cost of goods sold"
       ],
       "exclusions": "Exclude unsold inventory and general administrative costs.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TE/TEX/CSSL",
+      "purpose": "Direct costs attributable to goods or services sold",
+      "aliases": [
+        "Cost of sales"
+      ],
+      "role": "expense",
+      "source_page": 31
     },
     "PL/TE/TEX/DTEX": {
-      "name": "Distribution expenses",
-      "definition": "Storage, handling and delivery costs for customers",
+      "name": "DISTRIBUTION EXPENSES",
+      "definition": "Costs related to storing, handling, and delivering goods to customers.",
       "usage_examples": [
         "Outbound delivery charge"
       ],
       "exclusions": "Distinguish inventory acquisition costs and marketing.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TE/TEX/DTEX",
+      "purpose": "Storage, handling and delivery costs for customers",
+      "aliases": [
+        "Distribution expenses"
+      ],
+      "role": "expense",
+      "source_page": 31
     },
     "PL/TE/TEX/MKEX": {
-      "name": "Marketing expenses",
-      "definition": "Advertising, promotion and brand activity",
+      "name": "MARKETING EXPENSES",
+      "definition": "Expenses incurred for advertising, promotions, and brand activities.",
       "usage_examples": [
         "Advertising campaign expense"
       ],
       "exclusions": "Exclude equipment assets and refundable campaign deposits.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TE/TEX/MKEX",
+      "purpose": "Advertising, promotion and brand activity",
+      "aliases": [
+        "Marketing expenses"
+      ],
+      "role": "expense",
+      "source_page": 31
     },
     "PL/TE/TEX/OPEX": {
-      "name": "Other operating expenses",
-      "definition": "Other costs of primary business operations",
+      "name": "OTHER OPERATING EXPENSES",
+      "definition": "Miscellaneous operational costs not classi\ufb01ed elsewhere.",
       "usage_examples": [
         "Operating service expense"
       ],
       "exclusions": "Exclude administration, finance, inventory, assets and unconsumed prepaid coverage.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TE/TEX/OPEX",
+      "purpose": "Other costs of primary business operations",
+      "aliases": [
+        "Other operating expenses"
+      ],
+      "role": "expense",
+      "source_page": 31
     },
     "PL/OI/OIN/DBMT": {
-      "name": "Disbursement income",
-      "definition": "Disbursement recoveries when policy recognises income",
+      "name": "DISBURSEMENT",
+      "definition": "Income received from reimbursements of expenses paid on behalf of others.",
       "usage_examples": [
         "Recovery of disbursement charges"
       ],
       "exclusions": "May be clearing a receivable rather than income; require evidence and review.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/DBMT",
+      "purpose": "Disbursement recoveries when policy recognises income",
+      "aliases": [
+        "Disbursement income"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/RBMT": {
-      "name": "Reimbursement income",
-      "definition": "Reimbursement of prior costs when income treatment applies",
+      "name": "REIMBURSEMENT",
+      "definition": "Repayment of previously incurred expenses by a third party.",
       "usage_examples": [
         "Third-party expense reimbursement"
       ],
       "exclusions": "May offset expense or receivable; do not recognise income automatically.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/RBMT",
+      "purpose": "Reimbursement of prior costs when income treatment applies",
+      "aliases": [
+        "Reimbursement income"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/OVTC": {
-      "name": "Overdue interest income",
-      "definition": "Interest earned on late customer payments",
+      "name": "OVERDUE INTEREST INCOME",
+      "definition": "Interest earned on overdue payments from debtors or late settlements.",
       "usage_examples": [
         "Late-payment interest charged"
       ],
       "exclusions": "Exclude original sales principal.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/OVTC",
+      "purpose": "Interest earned on late customer payments",
+      "aliases": [
+        "Overdue interest income"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/BINC": {
-      "name": "Bank interest income",
-      "definition": "Interest earned on bank deposits",
+      "name": "BANK INTEREST INCOME",
+      "definition": "Interest income earned from bank deposits or savings accounts.",
       "usage_examples": [
         "Bank credits deposit interest"
       ],
       "exclusions": "Exclude interest paid and loan principal.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/BINC",
+      "purpose": "Interest earned on bank deposits",
+      "aliases": [
+        "Bank interest income"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/RBDR": {
-      "name": "Rebates and discounts received",
-      "definition": "Supplier rebates where income classification applies",
+      "name": "REBATE / DISCOUNT RECEIVED",
+      "definition": "Cashbacks, volume rebates, or discounts received from suppliers.",
       "usage_examples": [
         "Supplier cashback rebate"
       ],
       "exclusions": "May reduce inventory or purchase cost; follow company policy.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/RBDR",
+      "purpose": "Supplier rebates where income classification applies",
+      "aliases": [
+        "Rebates and discounts received"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/GPME": {
-      "name": "Gain on asset disposal",
-      "definition": "Gain above carrying value on fixed asset disposal",
+      "name": "GAIN ON DISPOSAL OF PLANT, MACHINE AND EQUIPMENT",
+      "definition": "Pro\ufb01t earned from selling \ufb01xed assets above their book value.",
       "usage_examples": [
         "Gain on selling used machinery"
       ],
       "exclusions": "Sale proceeds alone are insufficient; carrying value is needed.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/GPME",
+      "purpose": "Gain above carrying value on fixed asset disposal",
+      "aliases": [
+        "Gain on asset disposal"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/RTNC": {
-      "name": "Rental income",
-      "definition": "Incidental rental income outside primary operations",
+      "name": "RENTAL INCOME",
+      "definition": "Income earned from leasing out property or equipment.",
       "usage_examples": [
         "Incidental property rental income"
       ],
       "exclusions": "Primary rental business may need operating service income; assess MSIC and actual use.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/RTNC",
+      "purpose": "Incidental rental income outside primary operations",
+      "aliases": [
+        "Rental income"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/ISCL": {
-      "name": "Insurance claims",
-      "definition": "Insurance compensation received or receivable",
+      "name": "INSURANCE CLAIM",
+      "definition": "Compensation received from insurance companies for covered losses.",
       "usage_examples": [
         "Insurance claim compensation"
       ],
       "exclusions": "Exclude insurance premiums and prepaid insurance.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/ISCL",
+      "purpose": "Insurance compensation received or receivable",
+      "aliases": [
+        "Insurance claims"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/BDRC": {
-      "name": "Bad debts recovered",
-      "definition": "Recovery of previously written-off debts",
+      "name": "BAD DEBTS RECOVERED",
+      "definition": "Amounts previously written off as bad debts that are later collected.",
       "usage_examples": [
         "Collection of written-off customer debt"
       ],
       "exclusions": "Exclude ordinary customer settlement.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/BDRC",
+      "purpose": "Recovery of previously written-off debts",
+      "aliases": [
+        "Bad debts recovered"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OI/OIN/OTNC": {
-      "name": "Other income",
-      "definition": "Incidental income not fitting specific categories",
+      "name": "OTHER INCOME",
+      "definition": "Miscellaneous income not classi\ufb01ed under other speci\ufb01ed categories.",
       "usage_examples": [
         "Miscellaneous incidental income"
       ],
       "exclusions": "Prefer specific category where evidence supports it.",
       "type": "revenue",
       "subtype": "other",
-      "normal_balance": "credit"
+      "normal_balance": "credit",
+      "code": "PL/OI/OIN/OTNC",
+      "purpose": "Incidental income not fitting specific categories",
+      "aliases": [
+        "Other income"
+      ],
+      "role": "revenue",
+      "source_page": 32
     },
     "PL/OE/OEX/DPRC": {
-      "name": "Depreciation",
-      "definition": "Allocation of capital asset cost over useful life",
+      "name": "DEPRECIATION",
+      "definition": "Systematic allocation of the cost of tangible \ufb01xed assets over their useful lives.",
       "usage_examples": [
         "Monthly machinery depreciation"
       ],
       "exclusions": "Exclude initial asset purchase and tax capital allowances.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/OE/OEX/DPRC",
+      "purpose": "Allocation of capital asset cost over useful life",
+      "aliases": [
+        "Depreciation"
+      ],
+      "role": "expense",
+      "source_page": 32
     },
     "PL/OE/OEX/GNEX": {
-      "name": "General and administrative expenses",
-      "definition": "Day-to-day administrative costs consumed",
+      "name": "GENERAL EXPENSES",
+      "definition": "Day-to-day administrative costs such as utilities, o\ufb03ce supplies, and insurance.",
       "usage_examples": [
         "Office utilities or stationery expense"
       ],
       "exclusions": "Exclude future prepaid coverage, capital assets and direct cost of sales.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/OE/OEX/GNEX",
+      "purpose": "Day-to-day administrative costs consumed",
+      "aliases": [
+        "General and administrative expenses"
+      ],
+      "role": "expense",
+      "source_page": 32
     },
     "PL/FE/FEX/OVNT": {
-      "name": "Overdraft interest",
-      "definition": "Interest on overdraft borrowing",
+      "name": "OVERDRAFT INTEREST",
+      "definition": "Interest charged on overdrawn bank accounts.",
       "usage_examples": [
         "Bank overdraft interest charge"
       ],
       "exclusions": "Exclude principal and ordinary bank service fees.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/FE/FEX/OVNT",
+      "purpose": "Interest on overdraft borrowing",
+      "aliases": [
+        "Overdraft interest"
+      ],
+      "role": "finance_expense",
+      "source_page": 33
     },
     "PL/FE/FEX/FLNT": {
-      "name": "Finance lease interest",
-      "definition": "Interest component of finance lease payment",
+      "name": "FINANCE LEASE INTEREST",
+      "definition": "Interest expense incurred on \ufb01nance lease liabilities.",
       "usage_examples": [
         "Lease interest charge"
       ],
       "exclusions": "Exclude lease principal.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/FE/FEX/FLNT",
+      "purpose": "Interest component of finance lease payment",
+      "aliases": [
+        "Finance lease interest"
+      ],
+      "role": "finance_expense",
+      "source_page": 33
     },
     "PL/FE/FEX/TLNT": {
-      "name": "Term loan interest",
-      "definition": "Interest on bank term loans",
+      "name": "TERM LOAN INTEREST",
+      "definition": "Interest paid on long-term or short-term bank loans.",
       "usage_examples": [
         "Loan interest expense"
       ],
       "exclusions": "Exclude principal and qualifying capitalised borrowing costs.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/FE/FEX/TLNT",
+      "purpose": "Interest on bank term loans",
+      "aliases": [
+        "Term loan interest"
+      ],
+      "role": "finance_expense",
+      "source_page": 33
     },
     "PL/FE/FEX/OVNX": {
-      "name": "Overdue interest expense",
-      "definition": "Interest on late supplier payments",
+      "name": "OVERDUE INTEREST EXPENSES",
+      "definition": "Interest incurred on overdue payments to suppliers or creditors.",
       "usage_examples": [
         "Supplier late-payment interest"
       ],
       "exclusions": "Exclude supplier invoice principal.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/FE/FEX/OVNX",
+      "purpose": "Interest on late supplier payments",
+      "aliases": [
+        "Overdue interest expense"
+      ],
+      "role": "finance_expense",
+      "source_page": 33
     },
     "PL/FE/FEX/TDFT": {
-      "name": "Trade finance interest",
-      "definition": "Interest on trade financing",
+      "name": "TRADE FINANCE INTEREST",
+      "definition": "Interest paid on trade \ufb01nance facilities such as letters of credit.",
       "usage_examples": [
         "Letter-of-credit financing interest"
       ],
       "exclusions": "Exclude financing principal.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/FE/FEX/TDFT",
+      "purpose": "Interest on trade financing",
+      "aliases": [
+        "Trade finance interest"
+      ],
+      "role": "finance_expense",
+      "source_page": 33
     },
     "PL/FE/FEX/OTNT": {
-      "name": "Other interest expense",
-      "definition": "Other financing interest not classified above",
+      "name": "OTHER INTEREST",
+      "definition": "Miscellaneous interest expenses not classi\ufb01ed elsewhere.",
       "usage_examples": [
         "Other borrowing interest"
       ],
       "exclusions": "Exclude non-interest bank charges; PDF examples conflict, use nature of charge.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/FE/FEX/OTNT",
+      "purpose": "Other financing interest not classified above",
+      "aliases": [
+        "Other interest expense"
+      ],
+      "role": "finance_expense",
+      "source_page": 33
     },
     "PL/TX/ITX/TCYX": {
-      "name": "Current-year income tax expense",
-      "definition": "Income tax expense on current-year profits",
+      "name": "CURRENT YEAR TAX",
+      "definition": "Income tax expense payable for the current \ufb01nancial year.",
       "usage_examples": [
         "Current tax expense provision"
       ],
       "exclusions": "Exclude tax instalment assets and SST.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TX/ITX/TCYX",
+      "purpose": "Income tax expense on current-year profits",
+      "aliases": [
+        "Current-year income tax expense"
+      ],
+      "role": "tax_expense",
+      "source_page": 33
     },
     "PL/TX/ITX/TXPL": {
-      "name": "Tax penalties",
-      "definition": "Penalties imposed by tax authorities",
+      "name": "TAX PENALTIES",
+      "definition": "Fines or penalties imposed by tax authorities for late payment or non-compliance.",
       "usage_examples": [
         "Late tax filing penalty"
       ],
       "exclusions": "Exclude ordinary tax principal; do not infer deductibility.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TX/ITX/TXPL",
+      "purpose": "Penalties imposed by tax authorities",
+      "aliases": [
+        "Tax penalties"
+      ],
+      "role": "tax_expense",
+      "source_page": 33
     },
     "PL/TX/ITX/TDTX": {
-      "name": "Deferred tax expense",
-      "definition": "Tax effects from temporary differences",
+      "name": "DEFERRED TAX",
+      "definition": "Tax effects arising from temporary differences between accounting and tax values.",
       "usage_examples": [
         "Deferred tax expense adjustment"
       ],
       "exclusions": "Exclude current tax payment; requires review.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TX/ITX/TDTX",
+      "purpose": "Tax effects from temporary differences",
+      "aliases": [
+        "Deferred tax expense"
+      ],
+      "role": "tax_expense",
+      "source_page": 33
     },
     "PL/TX/RPX/PRGX": {
-      "name": "Property gains tax",
-      "definition": "Tax expense on taxable property disposal",
+      "name": "PROPERTY GAIN TAX",
+      "definition": "Tax levied on pro\ufb01ts from the sale or transfer of real property.",
       "usage_examples": [
         "Property gains tax assessment"
       ],
       "exclusions": "Exclude disposal proceeds and other income tax.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TX/RPX/PRGX",
+      "purpose": "Tax expense on taxable property disposal",
+      "aliases": [
+        "Property gains tax"
+      ],
+      "role": "tax_expense",
+      "source_page": 33
     },
     "PL/TX/RPX/CPGX": {
-      "name": "Capital gains tax",
-      "definition": "Tax expense on relevant capital asset gains",
+      "name": "CAPITAL GAIN TAX",
+      "definition": "Tax on gains from the disposal of capital assets, such as investments or property.",
       "usage_examples": [
         "Capital gains tax assessment"
       ],
       "exclusions": "Do not infer tax liability from sale alone.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TX/RPX/CPGX",
+      "purpose": "Tax expense on relevant capital asset gains",
+      "aliases": [
+        "Capital gains tax"
+      ],
+      "role": "tax_expense",
+      "source_page": 33
     },
     "PL/TX/OTX/OTEX": {
-      "name": "Other tax expenses",
-      "definition": "Other tax costs not classified above",
+      "name": "OTHER TAX EXPENSES",
+      "definition": "Miscellaneous tax-related expenses not classi\ufb01ed under speci\ufb01c tax types.",
       "usage_examples": [
         "Other tax expense assessment"
       ],
       "exclusions": "Prefer specific applicable tax category.",
       "type": "expense",
       "subtype": "other",
-      "normal_balance": "debit"
+      "normal_balance": "debit",
+      "code": "PL/TX/OTX/OTEX",
+      "purpose": "Other tax costs not classified above",
+      "aliases": [
+        "Other tax expenses"
+      ],
+      "role": "tax_expense",
+      "source_page": 33
     }
   }
 }

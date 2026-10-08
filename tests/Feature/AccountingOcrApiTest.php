@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Contracts\Ocr\AccountingOcrClient;
+use App\Services\AccountingOcr\AccountCodeRegistry;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -30,6 +31,21 @@ class AccountingOcrApiTest extends TestCase
                     $payload['document_direction'] = 'outgoing';
                 }
 
+                $registry = new AccountCodeRegistry;
+                foreach ($payload['lines'] as &$line) {
+                    $prefix = $line['required_prefix'] ?? $registry->prefixForAccount($line['selected_account_code'] ?? '');
+                    $guidance = $registry->guidance($prefix);
+                    $line['required_prefix'] = $prefix;
+                    $line['required_role'] ??= $guidance['role'] ?? 'expense';
+                    $line['required_account_type'] ??= $guidance['type'] ?? 'expense';
+                    $line['requires_control_account'] ??= in_array($line['required_role'], ['trade_payable', 'trade_receivable'], true);
+                    $line['required_control_role'] ??= match ($line['required_role']) {
+                        'trade_payable' => 'ap', 'trade_receivable' => 'ar', default => null
+                    };
+                    $line['account_error'] ??= $line['selected_account_code'] === null ? 'ACCOUNT_NOT_AVAILABLE' : null;
+                }
+                unset($line);
+
                 return $payload;
             }
         });
@@ -42,7 +58,7 @@ class AccountingOcrApiTest extends TestCase
             ['code' => 'BS/CA/CNB/BANK/10000', 'name' => 'Maybank', 'type' => 'asset', 'subtype' => 'bank', 'aliases' => []],
             ['code' => 'BS/CA/CNB/CASH/10000', 'name' => 'Cash on Hand', 'type' => 'asset', 'subtype' => 'cash', 'aliases' => []],
             ['code' => 'PL/OE/OEX/OPEX/10001', 'name' => 'Office Expenses', 'type' => 'expense', 'subtype' => 'other', 'aliases' => []],
-            ['code' => 'BS/CL/TPY/TPTC/10000', 'name' => 'Trade Payables', 'type' => 'liability', 'subtype' => 'accounts_payable', 'aliases' => []],
+            ['code' => 'BS/CL/TPY/TPTC/10000', 'name' => 'Trade Payables', 'type' => 'liability', 'subtype' => 'accounts_payable', 'aliases' => [], 'is_control_account' => true, 'control_role' => 'ap'],
             ['code' => 'PL/OI/RIN/SLIC/10000', 'name' => 'Sales Income', 'type' => 'revenue', 'subtype' => 'other', 'aliases' => []],
         ];
     }
@@ -104,11 +120,10 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('validation.is_postable', true);
     }
 
-    public function test_it_recommends_an_explicit_output_tax_account(): void
+    public function test_it_reports_the_required_output_tax_account_when_unavailable(): void
     {
         $tax = $this->line(null, 0, 6, 'Explicit SST is payable', 'SST 6.00');
-        $tax['suggested_name'] = 'SST Payable';
-        $tax['suggested_prefix'] = 'BS/CL/CTL/SNTP';
+        $tax['required_prefix'] = 'BS/CL/CTL/SNTP';
 
         $this->bindPayload($this->payload([
             $this->line('BS/CA/CNB/BANK/10000', 106, 0, 'Money received', 'Total paid RM106'),
@@ -123,21 +138,20 @@ class AccountingOcrApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher')
             ->assertJsonPath('data.journal_entry.lines.2.account_code', null)
-            ->assertJsonPath('data.journal_entry.lines.2.account_name', 'SST Payable')
-            ->assertJsonPath('data.journal_entry.lines.2.recommendation.parent_code', 'BS/CL/CTL/SNTP')
-            ->assertJsonPath('data.journal_entry.lines.2.recommendation.parent_definition_key', 'SNTP')
-            ->assertJsonPath('data.journal_entry.lines.2.recommendation.account_subtype', 'output_tax')
+            ->assertJsonPath('data.journal_entry.lines.2.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.2.required_account.parent_code', 'BS/CL/CTL/SNTP')
+            ->assertJsonPath('data.journal_entry.lines.2.required_account.account_subtype', 'output_tax')
             ->assertJsonMissing(['code' => 'tax_account_missing']);
     }
 
-    public function test_it_returns_acc01_parent_metadata_without_inventing_a_leaf_code(): void
+    public function test_it_recommends_a_missing_account_without_creating_or_posting_it(): void
     {
         $accounts = $this->accounts();
         $accounts[] = ['code' => 'PL/OE/OEX/OPEX/10003', 'name' => 'Utilities', 'type' => 'expense', 'subtype' => 'other'];
         $missing = $this->line(null, 100, 0, 'No submitted account is suitable', 'Annual cloud software subscription');
-        $missing['suggested_name'] = 'Cloud Software Subscription';
-        $missing['suggested_account_type'] = 'expense';
-        $missing['suggested_prefix'] = 'PL/OE/OEX/OPEX';
+        $missing['suggested_account_name'] = 'Cloud Software Subscription';
+        $missing['required_account_type'] = 'expense';
+        $missing['required_prefix'] = 'PL/OE/OEX/OPEX';
 
         $this->bindPayload($this->payload([
             $missing,
@@ -150,27 +164,22 @@ class AccountingOcrApiTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.journal_entry.lines.0.account_code', null)
-            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Cloud Software Subscription')
-            ->assertJsonPath('data.journal_entry.lines.0.match_status', 'new_account_recommended')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.account_type', 'expense')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/TE/TEX/OPEX')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_definition_key', 'OPEX')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.create_parent_if_missing', true)
-            ->assertJsonCount(5, 'data.journal_entry.lines.0.recommendation')
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.0.match_status', 'account_not_available')
+            ->assertJsonPath('data.journal_entry.lines.0.required_account.account_type', 'expense')
+            ->assertJsonPath('data.journal_entry.lines.0.required_account.parent_code', 'PL/TE/TEX/OPEX')
             ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.provisional_code')
-            ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.suggested_name')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.suggested_name', 'Cloud Software Subscription')
             ->assertJsonPath('validation.is_postable', false)
             ->assertJsonPath('validation.requires_manual_review', true);
     }
 
-    public function test_it_uses_account_name_as_the_single_name_for_multiple_recommendations(): void
+    public function test_it_keeps_missing_account_lines_incomplete(): void
     {
         $first = $this->line(null, 60, 0, 'First missing expense', 'Software RM60');
-        $first['suggested_name'] = 'Software Subscription';
-        $first['suggested_prefix'] = 'PL/OE/OEX/OPEX';
+        $first['required_prefix'] = 'PL/OE/OEX/OPEX';
         $second = $this->line(null, 40, 0, 'Second missing expense', 'Parking RM40');
-        $second['suggested_name'] = 'Parking Expense';
-        $second['suggested_prefix'] = 'PL/OE/OEX/OPEX';
+        $second['required_prefix'] = 'PL/OE/OEX/OPEX';
 
         $this->bindPayload($this->payload([
             $first,
@@ -183,19 +192,18 @@ class AccountingOcrApiTest extends TestCase
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Software Subscription')
-            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Parking Expense')
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.0.required_account.parent_code', 'PL/TE/TEX/OPEX')
+            ->assertJsonPath('data.journal_entry.lines.1.required_account.parent_code', 'PL/TE/TEX/OPEX')
             ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'PL/TE/TEX/OPEX')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/TE/TEX/OPEX')
-            ->assertJsonMissingPath('data.journal_entry.lines.0.recommendation.suggested_name')
-            ->assertJsonMissingPath('data.journal_entry.lines.1.recommendation.suggested_name');
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/TE/TEX/OPEX');
     }
 
-    public function test_it_uses_the_customer_name_for_a_new_trade_receivable(): void
+    public function test_it_reports_a_missing_ar_control_without_inventing_a_customer_account(): void
     {
         $receivable = $this->line(null, 100, 0, 'Customer owes the invoice total', 'Bill to: Northwind Sdn Bhd');
-        $receivable['suggested_name'] = 'Trade Receivables';
-        $receivable['suggested_prefix'] = 'BS/CA/TRV/TRDB';
+        $receivable['required_prefix'] = 'BS/CA/TRV/TRDB';
 
         $this->bindPayload($this->payload([
             $receivable,
@@ -212,16 +220,15 @@ class AccountingOcrApiTest extends TestCase
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Northwind Sdn Bhd')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.account_subtype', 'trade_receivable')
-            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'BS/CA/TRV/TRDB');
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.0.required_account.account_subtype', 'trade_receivable')
+            ->assertJsonPath('data.journal_entry.lines.0.required_account.parent_code', 'BS/CA/TRV/TRDB');
     }
 
-    public function test_it_uses_the_supplier_name_for_a_new_trade_payable(): void
+    public function test_it_reports_a_missing_ap_control_without_inventing_a_supplier_account(): void
     {
         $payable = $this->line(null, 0, 100, 'Amount remains payable to supplier', 'Supplier: Contoso Supplies');
-        $payable['suggested_name'] = 'Trade Payables - Contoso Supplies';
-        $payable['suggested_prefix'] = 'BS/CL/TPY/TPTC';
+        $payable['required_prefix'] = 'BS/CL/TPY/TPTC';
 
         $this->bindPayload($this->payload([
             $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense incurred', 'Supplier invoice'),
@@ -235,16 +242,15 @@ class AccountingOcrApiTest extends TestCase
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
-            'accounts' => json_encode($this->accounts()),
+            'accounts' => json_encode(array_values(array_filter($this->accounts(), fn ($a) => $a['subtype'] !== 'accounts_payable'))),
         ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Contoso Supplies')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.account_subtype', 'trade_payable')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'BS/CL/TPY/TPTC')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_definition_key', 'TPTC');
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.1.required_account.account_subtype', 'trade_payable')
+            ->assertJsonPath('data.journal_entry.lines.1.required_account.parent_code', 'BS/CL/TPY/TPTC');
     }
 
-    public function test_it_uses_pdf_parents_for_new_accounts_and_accepts_legacy_accounts(): void
+    public function test_it_uses_pdf_classification_for_missing_roles_and_accepts_legacy_accounts(): void
     {
         $accounts = array_values(array_filter(
             $this->accounts(),
@@ -252,8 +258,7 @@ class AccountingOcrApiTest extends TestCase
         ));
         $accounts[] = ['code' => 'PL/OI/TIN/SLIC/10010', 'name' => 'Legacy Product Sales', 'type' => 'revenue', 'subtype' => 'other'];
         $sales = $this->line(null, 0, 80, 'A new sales account is needed', 'Product sale');
-        $sales['suggested_name'] = 'Online Product Sales';
-        $sales['suggested_prefix'] = 'PL/OI/RIN/SLIC';
+        $sales['required_prefix'] = 'PL/OI/RIN/SLIC';
 
         $this->bindPayload($this->payload([
             $this->line('BS/CA/CNB/BANK/10000', 80, 0, 'Money received', 'Bank receipt'),
@@ -266,9 +271,8 @@ class AccountingOcrApiTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher')
-            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Online Product Sales')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'PL/TI/TIN/SLIC')
-            ->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_definition_key', 'SLIC');
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.1.required_account.parent_code', 'PL/TI/TIN/SLIC');
     }
 
     public function test_it_classifies_cash_to_bank_as_a_general_voucher_with_warning(): void
@@ -288,11 +292,10 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('validation.requires_manual_review', true);
     }
 
-    public function test_it_rejects_an_invented_selected_code_and_uses_a_valid_recommendation(): void
+    public function test_it_rejects_an_invented_code_without_substituting_an_account(): void
     {
         $line = $this->line('INVENTED-999', 45, 0, 'Expense', 'Parking receipt');
-        $line['suggested_name'] = 'Parking Expense';
-        $line['suggested_prefix'] = 'PL/OE/OEX/OPEX';
+        $line['required_prefix'] = 'PL/OE/OEX/OPEX';
         $this->bindPayload($this->payload([
             $line,
             $this->line('BS/CA/CNB/CASH/10000', 0, 45, 'Paid cash', 'Cash'),
@@ -304,9 +307,9 @@ class AccountingOcrApiTest extends TestCase
         ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.journal_entry.lines.0.account_code', null)
-            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'Parking Expense')
-            ->assertJsonPath('data.journal_entry.lines.0.match_status', 'new_account_recommended')
-            ->assertJsonPath('validation.warnings.0.code', 'invalid_selected_account');
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', null)
+            ->assertJsonPath('data.journal_entry.lines.0.match_status', 'account_selection_invalid')
+            ->assertJsonPath('validation.errors.0.code', 'ACCOUNT_SELECTION_INVALID');
     }
 
     public function test_it_preserves_foreign_currency_and_requires_review(): void
@@ -460,6 +463,12 @@ class AccountingOcrApiTest extends TestCase
     private function payload(array $lines, array $overrides = []): array
     {
         return array_merge([
+            'document_kind' => 'invoice',
+            'economic_event' => 'Ordinary purchase or sale',
+            'trade_nature' => 'non_trade',
+            'treatment_summary' => 'Recognise the supported transaction using eligible accounts.',
+            'payment_status' => 'paid',
+            'payment_status_evidence' => 'Receipt confirms settlement.',
             'transaction_count' => 1,
             'transaction_date' => '2026-09-17',
             'reference_number' => 'PV-1001',
@@ -551,14 +560,123 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonCount(2, 'data.journal_entry.lines');
     }
 
+    public function test_sample_trade_purchase_cannot_use_other_creditors_or_a_supplier_ledger(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[3]['is_control_account'] = false;
+        unset($accounts[3]['control_role']);
+        $accounts[] = ['code' => 'BS/CL/OPY/OPCR/10000', 'name' => 'Other Creditors', 'type' => 'liability', 'subtype' => 'other_payable'];
+        $payable = $this->line('BS/CL/OPY/OPCR/10000', 0, 1721.24, 'Unsettled ingredients purchase', 'Seafood invoice; COD terms alone do not prove payment');
+        $payable['required_role'] = 'trade_payable';
+        $payable['required_account_type'] = 'liability';
+        $payable['required_prefix'] = 'BS/CL/TPY/TPTC';
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 1721.24, 0, 'Consumed ingredients under company policy', 'Seafood items'),
+            $payable,
+        ], ['trade_nature' => 'trade', 'total' => 1721.24, 'payment_status' => 'unknown', 'payment_status_evidence' => null]));
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(), 'accounts' => $accounts,
+            'msic_code' => '56101', 'business_description' => 'Restaurant; evaluation context.',
+        ])->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.1.error_code', 'ACCOUNT_NOT_AVAILABLE')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.control_role', 'ap')
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation.requires_control_account', true)
+            ->assertJsonPath('data.journal_entry.lines.1.required_account.control_role', 'ap')
+            ->assertJsonPath('data.journal_entry.lines.1.account_code', null)
+            ->assertJsonPath('data.journal_entry.is_complete', false)
+            ->assertJsonPath('validation.is_postable', false);
+    }
+
+    public function test_trade_treatment_cannot_be_changed_to_fit_other_creditors(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/CL/OPY/OPCR/10000', 'name' => 'Other Creditors', 'type' => 'liability', 'subtype' => 'other_payable'];
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Trade purchase', 'Ingredients'),
+            $this->line('BS/CL/OPY/OPCR/10000', 0, 100, 'Wrong non-trade treatment', 'Supplier invoice'),
+        ], ['trade_nature' => 'trade', 'payment_status' => 'unpaid']));
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $accounts])
+            ->assertOk()->assertJsonPath('data.journal_entry.lines.1.error_code', 'ACCOUNT_TREATMENT_CONFLICT')
+            ->assertJsonPath('validation.is_postable', false);
+    }
+
+    public function test_sample_supplier_credit_note_preserves_reference_and_reversal_sides(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('BS/CL/TPY/TPTC/10000', 423.60, 0, 'Reduce supplier liability', 'Goods credit adjustment'),
+            $this->line('PL/OE/OEX/OPEX/10001', 0, 423.60, 'Reverse original expense under company policy', 'Returned goods'),
+        ], [
+            'document_kind' => 'credit_note', 'trade_nature' => 'trade', 'document_direction' => 'incoming',
+            'transaction_date' => '2026-01-27', 'original_document_reference' => 'ORIGINAL-INVOICE',
+            'total' => 423.60, 'payment_status' => 'unpaid', 'payment_status_evidence' => 'Adjustment against outstanding supplier balance',
+        ]));
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts()])
+            ->assertOk()->assertJsonPath('data.classification.document_kind', 'credit_note')
+            ->assertJsonPath('data.extracted.original_document_reference', 'ORIGINAL-INVOICE')
+            ->assertJsonPath('data.journal_entry.lines.0.debit', 423.6)
+            ->assertJsonPath('data.journal_entry.lines.0.required_account.control_role', 'ap')
+            ->assertJsonPath('data.journal_entry.is_complete', true)
+            ->assertJsonPath('validation.final_validation_required_by', 'Arkcloudant');
+    }
+
+    public function test_sample_insurance_period_requires_review_without_assuming_payment(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/CA/ORV/PRMT/10000', 'name' => 'Prepaid Insurance', 'type' => 'asset', 'subtype' => 'prepayment'];
+        $this->bindPayload($this->payload([
+            $this->line('BS/CA/ORV/PRMT/10000', 298.59, 0, 'Coverage timing proposal requires review', 'Annual policy'),
+            $this->line('BS/CL/TPY/TPTC/10000', 0, 298.59, 'Proposed payable pending review', 'Receipt will be issued upon payment'),
+        ], [
+            'document_kind' => 'debit_note', 'transaction_count' => 1,
+            'transaction_date' => '2023-01-13', 'invoice_date' => '2023-01-13', 'total' => 298.59,
+            'payment_status' => 'unknown', 'payment_status_evidence' => null,
+            'service_periods' => [[
+                'description' => 'Insurance', 'amount' => 298.59,
+                'start_date' => '2023-01-13', 'end_date' => '2024-01-12',
+                'period_kind' => 'service_coverage', 'evidence' => 'Policy coverage dates', 'prepayment_candidate' => true,
+            ]],
+        ]));
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $accounts, 'posting_date' => '2023-01-13'])
+            ->assertOk()->assertJsonPath('data.prepayment_assessment.payment_status', 'unknown')
+            ->assertJsonPath('data.prepayment_assessment.service_periods.0.relation_to_posting_date', 'covers_posting_date')
+            ->assertJsonPath('data.prepayment_assessment.schedule_generated', false)
+            ->assertJsonPath('validation.requires_manual_review', true)
+            ->assertJsonPath('validation.is_postable', false);
+    }
+
+    public function test_empty_chart_returns_requirements_instead_of_creating_accounts(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense required', 'Invoice'),
+            $this->line('BS/CL/TPY/TPTC/10000', 0, 100, 'AP control required', 'Unpaid invoice'),
+        ]));
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => '[]'])
+            ->assertOk()->assertJsonPath('data.journal_entry.lines.0.error_code', 'ACCOUNT_NOT_AVAILABLE')
+            ->assertJsonPath('data.journal_entry.lines.1.error_code', 'ACCOUNT_NOT_AVAILABLE')
+            ->assertJsonPath('validation.is_postable', false);
+    }
+
+    public function test_control_metadata_and_source_roles_must_be_consistent(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[0]['role'] = 'trade_payable';
+        $accounts[3]['control_role'] = 'ar';
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $accounts], ['Accept' => 'application/json'])
+            ->assertStatus(422)->assertJsonValidationErrors(['accounts.0.role', 'accounts.3.control_role']);
+
+        $accounts = $this->accounts();
+        unset($accounts[3]['is_control_account']);
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $accounts], ['Accept' => 'application/json'])
+            ->assertStatus(422)->assertJsonValidationErrors(['accounts.3.is_control_account']);
+    }
+
     /** @return array<string, mixed> */
     private function line(?string $code, float $debit, float $credit, string $reason, string $evidence): array
     {
         return [
             'selected_account_code' => $code,
-            'suggested_name' => null,
-            'suggested_account_type' => null,
-            'suggested_prefix' => null,
+            'required_account_type' => null,
+            'required_prefix' => null,
             'debit' => $debit,
             'credit' => $credit,
             'confidence' => 0.95,

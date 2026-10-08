@@ -45,7 +45,7 @@ class GeminiAccountingOcrClientTest extends TestCase
             'image/png',
             [['code' => 'BANK-1', 'name' => 'Bank', 'type' => 'asset', 'subtype' => 'bank']],
             'ACME SDN BHD - free form company context',
-            ['msic' => [['code' => '01111', 'description' => 'Growing of maize']], 'posting_date' => '2026-10-07'],
+            ['msic' => [['code' => '01111', 'description' => 'Growing of maize'], ['code' => '62010', 'description' => 'Computer programming activities']], 'business_description' => 'Maize grower with software services', 'posting_date' => '2026-10-07'],
         );
 
         $this->assertSame(1, $result['transaction_count']);
@@ -54,6 +54,14 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'BANK-1')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'ACME SDN BHD - free form company context')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Growing of maize')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Computer programming activities')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Maize grower with software services')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'TRADE CREDITORS')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Classification sequence:')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Arkcloudant')
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.required_role.type') === 'string'
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.requires_control_account.type') === 'boolean'
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.suggested_account_name.nullable') === true
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'PL/TI/TIN/SLIC')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Annual insurance paid before coverage is consumed')
             && data_get($request->data(), 'generationConfig.responseSchema.properties.service_periods.type') === 'array');

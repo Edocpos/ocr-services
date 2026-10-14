@@ -96,7 +96,8 @@ Classification sequence:
 3. Determine trade_nature (trade, non_trade, mixed, unknown) from the event and the company's operations, not from the vendor's name or availability of accounts.
 4. Determine accounting treatment and each required account role independently of available accounts.
 5. Match those requirements to eligible company accounts. Prefer the exact supplier/customer ledger matching the counterparty by name or alias; respect explicit AP/AR control flags when a control is required.
-6. Propose journal amounts and return a concise treatment_summary and document evidence, not hidden reasoning.
+6. Assess each invoice item separately and return item_assessments with description, amount (printed item amount excluding separately shown tax, or null when unavailable), treatment (expense, inventory, ppe, mixed, unknown), reason, evidence, policy_assumptions and requires_policy_review. Do not include settlement journal lines as document items. Keep repair/improvement ambiguity explicit; a renovation title alone cannot establish that every item is capital. Site preparation, painting and cleaning need assessment of whether they are directly attributable to bringing the improved asset into use versus routine maintenance. Never invent a company policy or capitalisation threshold; list unconfirmed assumptions and mark requires_policy_review=true. Return [] when there are no identifiable document items.
+7. Propose journal amounts and return a concise treatment_summary and document evidence, not hidden reasoning.
 Example: restaurant + supplier invoice + ingredients + unpaid = ordinary trade purchase requiring a trade_payable supplier ledger or AP control, not other_payable/OTHER CREDITORS. Distinguish stock still held from cost already consumed under the company's policy.
 Return business_context_reason explaining how the supplied company MSIC activities and actual operations relate to the items, trade/non-trade assessment and expense/inventory/PPE treatment. State uncertainty or missing context instead of treating MSIC as decisive. For restaurant MSIC 56103/56101, ingredients can be ordinary trade inputs, while premises renovation requires a capital/repair assessment rather than automatically cost of sales. Assess improvements versus routine repairs from line evidence and company policy; do not infer capitalisation thresholds from MSIC. The event trade_nature and settlement ledger are separate: a non-trade capital purchase may still use the supplied named supplier ledger under its chart classification. Explain this distinction.
 For credit notes identify whether an incoming supplier reduction or outgoing customer reduction reverses the original expense/inventory/revenue and AP/AR. Use positive amounts on the reversed debit/credit sides; do not treat a credit note as a new sale. Extract original_document_reference. Debit notes can increase an original invoice, charge transport or bill insurance/rent: identify the actual event and original reference rather than assuming a purchase.
@@ -128,8 +129,10 @@ Account guidance:
 Period and advance-payment rules:
 - Extract service_periods per document item when an explicit coverage/service/billing period or duration such as annual or twelve months appears. Return [] when none appears. Include description, amount, start_date, end_date, period_kind (service_coverage, billing_period, payment_terms, unknown), evidence and prepayment_candidate. A printed duration without exact dates still needs an item with null dates and review, not guessed dates.
 - Extract invoice_date, event_date (when goods/services occurred), payment_date and original_document_reference separately; do not confuse an original invoice date with the credit/debit note date. Use YYYY-MM-DD dates only when printed dates establish them reliably; otherwise null. Do not invent coverage dates or amounts. A due date or payment term is not service coverage.
-- Extract payment_status as paid, unpaid, partially_paid or unknown from evidence; printed bank details are not proof of payment. Include payment_status_evidence.
-- Annual insurance, subscriptions and other services paid before future coverage can require BS/CA/ORV/PRMT. Do not expense unconsumed future coverage automatically. Compare coverage to supplied posting_date, or transaction_date when available. Missing dates/payment evidence require review.
+- Extract payment_evidence_kind: settlement_confirmation (actual receipt, completed payment or settlement confirmation), outstanding_confirmation (explicit outstanding/unpaid statement or balance confirmation), payment_terms, payment_instructions, or none. paid/partially_paid require settlement_confirmation with evidence; unpaid requires outstanding_confirmation with evidence. Due dates, credit/COD terms and no receipt are not proof of unpaid status. Otherwise return payment_status=unknown. Include payment_status_evidence describing the evidence or uncertainty.
+- payment_method, payment_reference and payment_date describe an actual settlement only, never the beneficiary bank details or an invoice number to quote later. Put printed bank/payment instructions in payment_instructions and an invoice number to quote in payment_instruction_reference. Bank details do not establish payment.
+- Do not copy invoice_date into event_date unless the document establishes when goods/services actually occurred. Arkcloudant supplies posting_date; never infer it from invoice_date, transaction_date or the current date.
+- Annual insurance, subscriptions and other services paid before future coverage can require BS/CA/ORV/PRMT. Do not expense unconsumed future coverage automatically. Compare coverage only to supplied posting_date. Missing posting_date requires timing review; never substitute an invoice or transaction date. Missing dates/payment evidence require review.
 - A period alone does not prove prepayment. Past consumed services may be expense/payable or accrual; unpaid future-service invoices require assessment, not automatic prepaid assets. Do not infer that a later invoice date proves a prior-period accrual.
 - Distinguish prepaid expenses, refundable deposits paid (BS/CA/ORV/OTDP), trade advances paid to suppliers (BS/CA/TRV/TRDP), customer advances received (BS/CL/TPY/TPTD), and accrued expenses (BS/CL/OPY/OPCC). Do not use an asset category for deposits received or recognise unearned customer advances as revenue.
 - This release proposes the initial journal for review only. Do not create monthly schedules or include future adjustment journals in lines.
@@ -175,6 +178,9 @@ PROMPT
                 'total' => $number,
                 'payment_method' => $nullableString,
                 'payment_reference' => $nullableString,
+                'payment_instruction_reference' => $nullableString,
+                'payment_instructions' => $nullableString,
+                'payment_evidence_kind' => ['type' => 'string', 'enum' => ['settlement_confirmation', 'outstanding_confirmation', 'payment_terms', 'payment_instructions', 'none']],
                 'payment_status' => ['type' => 'string', 'enum' => ['paid', 'unpaid', 'partially_paid', 'unknown']],
                 'payment_status_evidence' => $nullableString,
                 'service_periods' => [
@@ -191,6 +197,22 @@ PROMPT
                             'prepayment_candidate' => ['type' => 'boolean'],
                         ],
                         'required' => ['description', 'amount', 'start_date', 'end_date', 'period_kind', 'evidence', 'prepayment_candidate'],
+                    ],
+                ],
+                'item_assessments' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'description' => ['type' => 'string'],
+                            'amount' => $number,
+                            'treatment' => ['type' => 'string', 'enum' => ['expense', 'inventory', 'ppe', 'mixed', 'unknown']],
+                            'reason' => ['type' => 'string'],
+                            'evidence' => ['type' => 'string'],
+                            'policy_assumptions' => ['type' => 'array', 'items' => ['type' => 'string']],
+                            'requires_policy_review' => ['type' => 'boolean'],
+                        ],
+                        'required' => ['description', 'amount', 'treatment', 'reason', 'evidence', 'policy_assumptions', 'requires_policy_review'],
                     ],
                 ],
                 'overall_confidence' => ['type' => 'number'],
@@ -217,7 +239,7 @@ PROMPT
                     ],
                 ],
             ],
-            'required' => ['document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'service_periods', 'overall_confidence', 'lines'],
+            'required' => ['document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'payment_evidence_kind', 'payment_instruction_reference', 'payment_instructions', 'item_assessments', 'service_periods', 'overall_confidence', 'lines'],
         ];
     }
 

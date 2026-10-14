@@ -9,7 +9,7 @@ Optional fields:
 - `msic_code`: primary company business code as a five-digit **string**, e.g. `01111`. `00000` provides no industry context.
 - `additional_msic_codes`: JSON array of up to ten other code strings.
 - `business_description`: actual business operations, up to 2,000 characters.
-- `posting_date`: valid `YYYY-MM-DD` accounting date. Coverage assessment falls back to the extracted transaction date; it never uses the server's current date.
+- `posting_date`: valid `YYYY-MM-DD` accounting date. Required before a proposal can be marked postable. Coverage is assessed only against this supplied accounting date; invoice/event/transaction dates are not substituted.
 
 Codes are validated against `resources/accounting/msic.json`, imported from the supplied MSIC 2008 list with its duplicate 16211 removed. Gemini receives only selected codes and resolved descriptions, not the complete catalogue. Unknown codes return HTTP 422. Names/descriptions and all document content remain untrusted reference data.
 
@@ -44,7 +44,7 @@ Credit/debit notes describe adjustments rather than payment by default. Gemini e
 
 ## Prepayment and period review
 
-Gemini extracts `service_periods` per item: description, amount, start/end dates, period kind, evidence and possible prepayment. Period kinds distinguish service coverage, billing periods, payment terms and unknown periods. Annual durations without exact dates are returned with null dates. Payment status is paid/unpaid/partially_paid/unknown and requires evidence.
+Gemini extracts `service_periods` per item: description, amount, start/end dates, period kind, evidence and possible prepayment. Period kinds distinguish service coverage, billing periods, payment terms and unknown periods. Annual durations without exact dates are returned with null dates. Payment status is paid/unpaid/partially_paid/unknown and requires structured evidence. `payment_evidence_kind` distinguishes settlement_confirmation, outstanding_confirmation, payment_terms, payment_instructions and none. Paid/partially paid require settlement evidence; unpaid requires an explicit outstanding/unpaid balance statement. Terms, due dates, bank details and lack of a receipt result in unknown status and manual review. Actual settlement fields (`payment_method`, `payment_reference`, `payment_date`) are cleared without supported settlement evidence; printed instructions and references remain under `payment_instructions` and `payment_instruction_reference`.
 
 `data.prepayment_assessment` returns the normalised periods, their relation to the posting date, payment evidence, review status, and `schedule_generated: false`. Future or overlapping coverage, incomplete coverage information, malformed dates/ranges, and prepayment/deposit/advance/accrual account use require manual review. Past coverage is not automatically prepaid. Payment terms alone do not indicate prepayment. A prepaid account without coverage or full-payment evidence produces additional warnings.
 
@@ -64,3 +64,13 @@ Local regression scenarios use anonymised facts derived from the supplied folder
 Tests check the structured provider contract and local validation using mocked model output. Live Gemini classification accuracy on these PDFs has not been verified. Company identity, chart, policy, settlement and posting date remain necessary inputs; document samples alone cannot determine final accrual or prepayment treatment.
 
 Malaysian currency aliases (`RM`, `Ringgit`, `Malaysian Ringgit`) are normalised to `MYR`; `extracted.source_currency` preserves the model value. Genuine foreign currencies still require review.
+
+## Posting controls and item audit
+
+A missing `posting_date` returns a proposal with `posting_date_required` and `is_postable: false`. The date is optional for extraction but required for posting readiness. No date is inferred from the invoice, economic event or server clock. Coverage assessment returns a null posting date when none is supplied. Gemini must not copy the invoice date into event_date without event evidence.
+
+`cash_direction_unclear` is raised only for supported paid/partially-paid settlement without cash/bank journal treatment. Payment instructions do not trigger it. A proposed cash/bank entry without supported settlement evidence returns `cash_payment_not_supported` (internal cash/bank transfers are assessed separately).
+
+`data.item_assessments` contains document-item description, amount, proposed treatment, reason, evidence, policy_assumptions and requires_policy_review. PPE proposals always return `capitalisation_policy_review` and `data.capitalisation_assessment.requires_manual_review: true`, even at confidence 1. Confirm company policy and whether repairs, improvements, preparation, painting or cleaning are directly attributable before approval; OCR does not invent thresholds or mark policy approval complete. Missing/invalid item assessments also require review. Other uncertain or assumption-dependent item treatments require review.
+
+Matched journal entries sharing the exact account, requirement and debit/credit side are consolidated. Debits and credits are never netted against each other; unresolved account recommendations remain separate. Each output line includes source_lines and audit_support retaining every source amount, confidence, reason and evidence. Group confidence is the lowest source confidence. The original detailed proposal remains at `data.journal_entry.source_lines`, while `data.journal_entry.lines` contains the grouped proposal. Per-line validation fields point to the original source_lines so grouping cannot change their meaning. One-based source indices match audit_support.source_line.

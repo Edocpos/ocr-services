@@ -16,7 +16,7 @@ class PrepaymentAssessmentTest extends TestCase
             'service_periods' => [$period + [
                 'period_kind' => 'service_coverage', 'evidence' => 'Printed coverage', 'prepayment_candidate' => false,
             ]],
-        ] + $extra, $lines, [], $warnings);
+        ] + $extra, $lines, ['posting_date' => '2026-10-07'], $warnings);
 
         return [$result, array_column($warnings, 'code')];
     }

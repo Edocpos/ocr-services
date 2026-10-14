@@ -240,10 +240,10 @@ return [
                             ['field' => 'msic_code', 'type' => 'string', 'required' => false, 'notes' => 'Primary company MSIC, exactly five digits including leading zeros; validated against the local catalogue. 00000 means not applicable.'],
                             ['field' => 'additional_msic_codes', 'type' => 'JSON array', 'required' => false, 'notes' => 'Up to 10 additional MSIC strings. Only selected codes and resolved descriptions are sent to AI.'],
                             ['field' => 'business_description', 'type' => 'string', 'required' => false, 'notes' => 'Actual business operations; max 2000 characters. Industry context does not determine posting by itself.'],
-                            ['field' => 'posting_date', 'type' => 'YYYY-MM-DD', 'required' => false, 'notes' => 'Date against which service coverage is assessed. Falls back to the extracted transaction date, never the server date.'],
+                            ['field' => 'posting_date', 'type' => 'YYYY-MM-DD', 'required' => false, 'notes' => 'Accounting date required before posting readiness. Used for coverage assessment; invoice/transaction/server dates are never substituted.'],
                             ['field' => 'accounts', 'type' => 'JSON array', 'required' => true, 'notes' => '0–500 accounts with code, name, type, subtype, and optional aliases, purpose (max 1000 characters), usage_examples (up to 3 strings, max 500 characters each). Optional role and acc01_prefix support custom codes. Prefer the named supplier/customer ledger by counterparty name or alias. Explicitly required AP/AR controls need is_control_account=true and control_role=ap/ar; an individual ledger cannot bypass a control requirement. Recognised prefixes derive authoritative roles from the source library. Subtypes also accept prepayment, supplier_advance, customer_advance, refundable_deposit, accrual, other_payable, income_tax_asset and income_tax_payable.'],
                         ],
-                        'curl_example' => "curl --location ':app_url/api/ocr/accounting' \\\n  --form 'document=@\"/absolute/path/to/voucher.pdf\"' \\\n  --form 'company={\"name\":\"ACME SDN BHD\",\"registration_no\":\"202301012345\"}' \\\n  --form 'accounts=[{\"code\":\"BS/CA/CNB/BANK/10000\",\"name\":\"Maybank\",\"type\":\"asset\",\"subtype\":\"bank\"}]'",
+                        'curl_example' => "curl --location ':app_url/api/ocr/accounting' \\\n  --form 'document=@\"/absolute/path/to/voucher.pdf\"' \\\n  --form 'company={\"name\":\"ACME SDN BHD\",\"registration_no\":\"202301012345\"}' \\\n  --form 'posting_date=2026-09-17' \\\n  --form 'accounts=[{\"code\":\"BS/CA/CNB/BANK/10000\",\"name\":\"Maybank\",\"type\":\"asset\",\"subtype\":\"bank\"}]'",
                         'responses' => [
                             [
                                 'label' => '200 OK — Balanced accounting proposal',
@@ -262,11 +262,13 @@ return [
                                             'total' => 100.00,
                                         ],
                                         'classification' => ['voucher_type' => 'payment_voucher', 'document_kind' => 'invoice', 'economic_event' => 'Paid office purchase', 'trade_nature' => 'non_trade', 'treatment_summary' => 'Recognise supported expense and bank payment.'],
-                                        'business_context' => ['msic' => [], 'business_description' => null, 'posting_date' => null],
+                                        'business_context' => ['msic' => [], 'business_description' => null, 'posting_date' => '2026-09-17'],
+                                        'item_assessments' => [],
+                                        'capitalisation_assessment' => ['has_ppe' => false, 'requires_manual_review' => false, 'status' => 'not_indicated'],
                                         'prepayment_assessment' => [
                                             'status' => 'no_prepayment_indicated', 'posting_date' => '2026-09-17',
-                                            'posting_date_source' => 'transaction_date', 'payment_status' => 'paid',
-                                            'payment_status_evidence' => 'Paid via Maybank', 'service_periods' => [],
+                                            'posting_date_source' => 'request', 'payment_status' => 'paid',
+                                            'payment_status_evidence' => 'Paid via Maybank', 'payment_evidence_kind' => 'settlement_confirmation', 'service_periods' => [],
                                             'has_prepayment_account' => false, 'requires_manual_review' => false, 'schedule_generated' => false,
                                         ],
                                         'journal_entry' => [

@@ -72,6 +72,7 @@ class AccountingOcrApiTest extends TestCase
 
         $response = $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
+            'posting_date' => '2026-09-17',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json']);
 
@@ -109,10 +110,11 @@ class AccountingOcrApiTest extends TestCase
         $this->bindPayload($this->payload([
             $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense incurred', 'Supplier invoice'),
             $this->line('BS/CL/TPY/TPTC/10000', 0, 100, 'Amount owed to supplier', 'Payment terms: 30 days'),
-        ], ['payment_method' => null, 'payment_reference' => null]));
+        ], ['payment_method' => null, 'payment_reference' => null, 'payment_status' => 'unpaid', 'payment_status_evidence' => 'Supplier confirms full balance outstanding.']));
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
+            'posting_date' => '2026-09-17',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -284,6 +286,7 @@ class AccountingOcrApiTest extends TestCase
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
+            'posting_date' => '2026-09-17',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -321,6 +324,7 @@ class AccountingOcrApiTest extends TestCase
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
+            'posting_date' => '2026-09-17',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -359,6 +363,7 @@ class AccountingOcrApiTest extends TestCase
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
+            'posting_date' => '2026-09-17',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -377,6 +382,7 @@ class AccountingOcrApiTest extends TestCase
 
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(),
+            'posting_date' => '2026-09-17',
             'accounts' => json_encode($this->accounts()),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -501,6 +507,94 @@ class AccountingOcrApiTest extends TestCase
         $this->assertContains('business_context_not_explained', array_column($response->json('validation.warnings'), 'code'));
     }
 
+    public function test_payment_terms_and_instructions_do_not_establish_unpaid_status_or_cash_direction(): void
+    {
+        foreach (['payment_terms', 'payment_instructions', 'none'] as $kind) {
+            $this->bindPayload($this->payload([
+                $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense', 'Invoice'),
+                $this->line('BS/CL/TPY/TPTC/10000', 0, 100, 'Supplier balance proposal', 'Invoice amount'),
+            ], [
+                'payment_status' => 'unpaid', 'payment_status_evidence' => '7 Days; quote invoice number when paying',
+                'payment_evidence_kind' => $kind, 'payment_method' => 'CIMB', 'payment_reference' => 'INV-001', 'payment_date' => '2026-09-17',
+            ]));
+            $response = $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts(), 'posting_date' => '2026-09-17']);
+            $response->assertOk()->assertJsonPath('data.prepayment_assessment.payment_status', 'unknown')
+                ->assertJsonPath('data.extracted.payment_reference', null)
+                ->assertJsonPath('data.extracted.payment_instruction_reference', 'INV-001')
+                ->assertJsonPath('data.extracted.payment_method', null)
+                ->assertJsonPath('data.extracted.payment_date', null)
+                ->assertJsonPath('validation.is_postable', false);
+            $codes = array_column($response->json('validation.warnings'), 'code');
+            $this->assertNotContains('cash_direction_unclear', $codes);
+            $this->assertContains('payment_status_unclear', $codes);
+        }
+    }
+
+    public function test_actual_settlement_without_a_cash_account_still_requires_review(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense', 'Invoice'),
+            $this->line('BS/CL/TPY/TPTC/10000', 0, 100, 'Wrong payable proposal for paid invoice', 'Invoice'),
+        ], ['payment_reference' => 'RECEIPT-001']));
+        $response = $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts(), 'posting_date' => '2026-09-17']);
+        $response->assertOk()->assertJsonPath('data.extracted.payment_reference', 'RECEIPT-001')
+            ->assertJsonPath('data.extracted.payment_status', 'paid')->assertJsonPath('validation.is_postable', false);
+        $this->assertContains('cash_direction_unclear', array_column($response->json('validation.warnings'), 'code'));
+    }
+
+    public function test_invoice_date_cannot_replace_a_required_posting_date(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense', 'Invoice'),
+            $this->line('BS/CA/CNB/BANK/10000', 0, 100, 'Paid', 'Receipt'),
+        ], ['invoice_date' => '2026-09-17']));
+        $response = $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts()]);
+        $response->assertOk()->assertJsonPath('data.prepayment_assessment.posting_date', null)->assertJsonPath('validation.is_postable', false);
+        $this->assertContains('posting_date_required', array_column($response->json('validation.warnings'), 'code'));
+    }
+
+    public function test_capitalisation_is_reviewed_and_grouped_with_all_item_evidence_retained(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/NA/PPE/RENO/10000', 'name' => 'Renovation', 'type' => 'asset', 'subtype' => 'other'];
+        $first = $this->line('BS/NA/PPE/RENO/10000', 60, 0, 'Proposed improvement', 'Electrical modification RM60');
+        $second = $this->line('BS/NA/PPE/RENO/10000', 40, 0, 'Check routine repair versus attributable project cost', 'Repainting RM40');
+        $second['confidence'] = 0.8;
+        $items = [
+            ['description' => 'Electrical modification', 'amount' => 60, 'treatment' => 'ppe', 'reason' => 'Possible improvement', 'evidence' => 'Electrical modification RM60', 'policy_assumptions' => ['Improvement rather than maintenance'], 'requires_policy_review' => true],
+            ['description' => 'Repainting', 'amount' => 40, 'treatment' => 'mixed', 'reason' => 'Routine repair or attributable project cost', 'evidence' => 'Repainting RM40', 'policy_assumptions' => ['Directly attributable to asset preparation'], 'requires_policy_review' => true],
+        ];
+        $this->bindPayload($this->payload([$first, $second, $this->line('BS/CL/TPY/TPTC/10000', 0, 100, 'Outstanding supplier balance', 'Balance unpaid RM100')], [
+            'item_assessments' => $items, 'payment_status' => 'unpaid', 'payment_status_evidence' => 'Balance unpaid RM100',
+        ]));
+        $response = $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $accounts, 'posting_date' => '2026-09-17']);
+        $response->assertOk()->assertJsonCount(2, 'data.journal_entry.lines')->assertJsonCount(3, 'data.journal_entry.source_lines')
+            ->assertJsonPath('data.journal_entry.lines.0.debit', 100)
+            ->assertJsonPath('data.journal_entry.lines.0.confidence', 0.8)
+            ->assertJsonPath('data.journal_entry.lines.0.source_lines', [1, 2])
+            ->assertJsonPath('data.journal_entry.lines.0.audit_support.1.evidence', 'Repainting RM40')
+            ->assertJsonPath('data.item_assessments', $items)
+            ->assertJsonPath('data.capitalisation_assessment.requires_manual_review', true)
+            ->assertJsonPath('data.journal_entry.is_balanced', true)->assertJsonPath('validation.is_postable', false);
+        $this->assertContains('capitalisation_policy_review', array_column($response->json('validation.warnings'), 'code'));
+    }
+
+    public function test_consolidation_keeps_opposite_sides_and_missing_accounts_separate(): void
+    {
+        $missing = $this->line(null, 0, 40, 'Missing expense treatment', 'Adjustment');
+        $missing['required_prefix'] = 'PL/TE/TEX/OPEX';
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense', 'Invoice'),
+            $this->line('PL/OE/OEX/OPEX/10001', 0, 20, 'Expense reversal', 'Credit adjustment'),
+            $missing, $missing,
+        ]));
+        $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts(), 'posting_date' => '2026-09-17'])
+            ->assertOk()->assertJsonCount(4, 'data.journal_entry.lines')
+            ->assertJsonPath('data.journal_entry.lines.1.credit', 20)
+            ->assertJsonPath('data.journal_entry.is_complete', false)
+            ->assertJsonPath('validation.errors.0.field', 'journal_entry.source_lines.3');
+    }
+
     private function payload(array $lines, array $overrides = []): array
     {
         return array_merge([
@@ -511,6 +605,8 @@ class AccountingOcrApiTest extends TestCase
             'business_context_reason' => 'Assess the documented purchase against supplied business activities; industry alone does not establish expense or asset treatment.',
             'payment_status' => 'paid',
             'payment_status_evidence' => 'Receipt confirms settlement.',
+            'payment_evidence_kind' => ($overrides['payment_status'] ?? 'paid') === 'unpaid' ? 'outstanding_confirmation' : 'settlement_confirmation',
+            'item_assessments' => [],
             'transaction_count' => 1,
             'transaction_date' => '2026-09-17',
             'reference_number' => 'PV-1001',

@@ -9,7 +9,7 @@ class PrepaymentAssessment
     /** Only assess and flag: no invented dates, allocations, schedules or forced journal changes. */
     public function assess(array $payload, array $lines, array $context, array &$warnings): array
     {
-        $postingDate = $this->date($context['posting_date'] ?? null) ?? $this->date($payload['transaction_date'] ?? null);
+        $postingDate = $this->date($context['posting_date'] ?? null);
         $status = $payload['payment_status'] ?? 'unknown';
         $paymentStatus = in_array($status, ['paid', 'unpaid', 'partially_paid', 'unknown'], true) ? $status : 'unknown';
         $paymentEvidence = is_string($payload['payment_status_evidence'] ?? null) ? trim($payload['payment_status_evidence']) : '';
@@ -100,8 +100,9 @@ class PrepaymentAssessment
         return [
             'status' => $requiresReview ? 'review_required' : 'no_prepayment_indicated',
             'posting_date' => $postingDate,
-            'posting_date_source' => $this->date($context['posting_date'] ?? null) !== null ? 'request' : ($postingDate === null ? null : 'transaction_date'),
+            'posting_date_source' => $postingDate === null ? null : 'request',
             'payment_status' => $paymentStatus,
+            'payment_evidence_kind' => $payload['payment_evidence_kind'] ?? 'none',
             'payment_status_evidence' => $paymentEvidence === '' ? null : $paymentEvidence,
             'service_periods' => $periods,
             'has_prepayment_account' => $hasPrepayment,

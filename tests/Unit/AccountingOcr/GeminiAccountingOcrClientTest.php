@@ -60,6 +60,9 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Classification sequence:')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'prefer the exact named supplier ledger')
             && data_get($request->data(), 'generationConfig.responseSchema.properties.business_context_reason.type') === 'string'
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.payment_evidence_kind.type') === 'string'
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.item_assessments.items.properties.policy_assumptions.type') === 'array'
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Due dates, credit/COD terms and no receipt are not proof of unpaid status')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Arkcloudant')
             && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.required_role.type') === 'string'
             && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.requires_control_account.type') === 'boolean'

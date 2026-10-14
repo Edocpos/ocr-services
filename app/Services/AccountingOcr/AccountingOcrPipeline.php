@@ -44,6 +44,7 @@ class AccountingOcrPipeline
         ]);
 
         $payload = $this->client->extract($content, $mime, $accounts, $companyContext, $context);
+        $payload = (new PaymentEvidenceAssessment)->normalize($payload);
         $transactionCount = max(0, (int) ($payload['transaction_count'] ?? 0));
         if ($transactionCount > 1) {
             throw AccountingOcrException::multipleTransactions();
@@ -67,6 +68,9 @@ class AccountingOcrPipeline
         if (! $classificationComplete) {
             $warnings[] = $this->issue('classification', 'economic_classification_unclear', 'Document event or trade nature is unclear; Arkcloudant must review the treatment.');
         }
+        if ($this->stringOrNull($context['posting_date'] ?? null) === null) {
+            $warnings[] = $this->issue('posting_date', 'posting_date_required', 'Arkcloudant must supply the accounting posting date before posting; invoice and event dates do not establish it.');
+        }
         if ((($context['msic'] ?? []) !== [] || $this->stringOrNull($context['business_description'] ?? null) !== null)
             && $this->stringOrNull($payload['business_context_reason'] ?? null) === null) {
             $warnings[] = $this->issue('classification', 'business_context_not_explained', 'The proposal does not explain how company MSIC/business nature informed the treatment; review before posting.');
@@ -83,20 +87,20 @@ class AccountingOcrPipeline
 
             if ((is_numeric($sourceLine['debit'] ?? null) && (float) $sourceLine['debit'] < 0)
                 || (is_numeric($sourceLine['credit'] ?? null) && (float) $sourceLine['credit'] < 0)) {
-                $errors[] = $this->issue('journal_entry.lines.'.($index + 1), 'negative_line_amount', 'Journal line amounts cannot be negative.');
+                $errors[] = $this->issue('journal_entry.source_lines.'.($index + 1), 'negative_line_amount', 'Journal line amounts cannot be negative.');
             }
 
             $debit = $this->amount($sourceLine['debit'] ?? 0);
             $credit = $this->amount($sourceLine['credit'] ?? 0);
             if (($debit > 0 && $credit > 0) || ($debit === 0.0 && $credit === 0.0)) {
-                $errors[] = $this->issue('journal_entry.lines.'.($index + 1), 'invalid_line_amount', 'Each journal line must contain a positive debit or credit, but not both.');
+                $errors[] = $this->issue('journal_entry.source_lines.'.($index + 1), 'invalid_line_amount', 'Each journal line must contain a positive debit or credit, but not both.');
             }
             $lineConfidence = $this->confidence($sourceLine['confidence'] ?? null);
             if ($lineConfidence < (float) config('ocr.accounting_confidence_min', 0.75)) {
-                $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'low_account_match_confidence', 'The account treatment confidence is below the configured threshold.');
+                $warnings[] = $this->issue('journal_entry.source_lines.'.($index + 1), 'low_account_match_confidence', 'The account treatment confidence is below the configured threshold.');
             }
             if (trim((string) ($sourceLine['reason'] ?? '')) === '' || trim((string) ($sourceLine['evidence'] ?? '')) === '') {
-                $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'missing_audit_support', 'The journal line is missing a posting reason or supporting document evidence.');
+                $warnings[] = $this->issue('journal_entry.source_lines.'.($index + 1), 'missing_audit_support', 'The journal line is missing a posting reason or supporting document evidence.');
             }
 
             $match = $this->accountMatcher->match($sourceLine, $accounts, $this->stringOrNull($payload['counterparty'] ?? null));
@@ -112,7 +116,7 @@ class AccountingOcrPipeline
             if ($match['error_code'] !== null) {
                 $hasUnmatched = true;
                 $matchStatus = strtolower($match['error_code']);
-                $errors[] = $this->issue('journal_entry.lines.'.($index + 1), $match['error_code'], match ($match['error_code']) {
+                $errors[] = $this->issue('journal_entry.source_lines.'.($index + 1), $match['error_code'], match ($match['error_code']) {
                     'ACCOUNT_NOT_AVAILABLE' => 'No supplied account satisfies the required accounting classification and control role. Arkcloudant must resolve this requirement before posting.',
                     'ACCOUNT_SELECTION_INVALID' => 'The selected account does not satisfy the required role. Eligible accounts exist, but no account was substituted automatically.',
                     'ACCOUNT_TREATMENT_CONFLICT' => 'A normal trade obligation cannot be classified as OTHER CREDITORS; review the required trade payable control role.',
@@ -184,8 +188,11 @@ class AccountingOcrPipeline
         if ($isTransfer) {
             $warnings[] = $this->issue('voucher_type', 'cash_bank_transfer', 'The entry transfers value between cash or bank accounts and is classified as a general voucher.');
         }
-        if ($cashDebit === 0.0 && $cashCredit === 0.0 && ($extracted['payment_method'] !== null || $extracted['payment_reference'] !== null)) {
-            $warnings[] = $this->issue('voucher_type', 'cash_direction_unclear', 'Payment details were detected without a matched cash/bank account.');
+        if ($cashDebit === 0.0 && $cashCredit === 0.0 && in_array($payload['payment_status'], ['paid', 'partially_paid'], true)) {
+            $warnings[] = $this->issue('voucher_type', 'cash_direction_unclear', 'Settlement evidence was detected without a matched cash/bank account.');
+        }
+        if (($cashDebit > 0 || $cashCredit > 0) && ! in_array($payload['payment_status'], ['paid', 'partially_paid'], true) && ! $isTransfer) {
+            $warnings[] = $this->issue('payment_status', 'cash_payment_not_supported', 'A cash/bank posting was proposed without supported settlement evidence; confirm before posting.');
         }
 
         $overallConfidence = $this->confidence($payload['overall_confidence'] ?? null);
@@ -194,6 +201,19 @@ class AccountingOcrPipeline
         }
 
         $prepayment = (new PrepaymentAssessment)->assess($payload, $journalLines, $context, $warnings);
+        $hasPpe = count(array_filter($journalLines, fn ($line) => $line['required_account']['role'] === 'ppe')) > 0;
+        $itemAssessments = $this->itemAssessments($payload['item_assessments'] ?? [], $warnings);
+        if ($hasPpe) {
+            $warnings[] = $this->issue('capitalisation', 'capitalisation_policy_review', 'PPE treatment is a proposal. Confirm improvements versus repairs, directly attributable costs and company capitalisation policy for each item before approval.');
+        }
+        if (count(array_filter($itemAssessments, fn ($item) => $item['requires_policy_review'] === true || $item['policy_assumptions'] !== [] || in_array($item['treatment'], ['ppe', 'mixed', 'unknown'], true))) > 0 && ! $hasPpe) {
+            $warnings[] = $this->issue('item_assessments', 'item_treatment_requires_review', 'One or more document items require policy or treatment confirmation.');
+        }
+        if ($hasPpe && $itemAssessments === []) {
+            $warnings[] = $this->issue('item_assessments', 'capitalisation_items_missing', 'An item-level capitalisation assessment is missing; review the underlying invoice items.');
+        }
+        $sourceLines = $journalLines;
+        $journalLines = (new JournalConsolidator)->consolidate($journalLines);
 
         $requiresReview = $hasUnmatched || $errors !== [] || $warnings !== [];
         $isPostable = $isBalanced && ! $requiresReview;
@@ -222,8 +242,11 @@ class AccountingOcrPipeline
                 ],
                 'business_context' => $context,
                 'prepayment_assessment' => $prepayment,
+                'item_assessments' => $itemAssessments,
+                'capitalisation_assessment' => ['has_ppe' => $hasPpe, 'requires_manual_review' => $hasPpe, 'status' => $hasPpe ? 'review_required' : 'not_indicated'],
                 'journal_entry' => [
                     'lines' => $journalLines,
+                    'source_lines' => $sourceLines,
                     'total_debit' => $totalDebit,
                     'total_credit' => $totalCredit,
                     'is_balanced' => $isBalanced,
@@ -273,6 +296,10 @@ class AccountingOcrPipeline
             'total' => $this->nullableAmount($payload['total'] ?? null),
             'payment_method' => $this->stringOrNull($payload['payment_method'] ?? null),
             'payment_reference' => $this->stringOrNull($payload['payment_reference'] ?? null),
+            'payment_instruction_reference' => $this->stringOrNull($payload['payment_instruction_reference'] ?? null),
+            'payment_instructions' => $this->stringOrNull($payload['payment_instructions'] ?? null),
+            'payment_status' => $payload['payment_status'] ?? 'unknown',
+            'payment_evidence_kind' => $payload['payment_evidence_kind'] ?? 'none',
         ];
     }
 
@@ -286,6 +313,35 @@ class AccountingOcrPipeline
         if ($extracted['total'] !== null && abs($totalDebit - $extracted['total']) > 0.01) {
             $errors[] = $this->issue('journal_entry', 'transaction_total_mismatch', 'The journal total does not equal the extracted document total.');
         }
+    }
+
+    private function itemAssessments(mixed $raw, array &$warnings): array
+    {
+        if (! is_array($raw) || ! array_is_list($raw)) {
+            $warnings[] = $this->issue('item_assessments', 'invalid_item_assessment', 'Item assessments were not a structured list; review the document.');
+
+            return [];
+        }
+        $result = [];
+        foreach ($raw as $index => $item) {
+            $valid = is_array($item)
+                && in_array($item['treatment'] ?? null, ['expense', 'inventory', 'ppe', 'mixed', 'unknown'], true)
+                && is_bool($item['requires_policy_review'] ?? null)
+                && is_array($item['policy_assumptions'] ?? null) && array_is_list($item['policy_assumptions'])
+                && count(array_filter($item['policy_assumptions'], fn ($value) => ! is_string($value))) === 0
+                && $this->stringOrNull($item['description'] ?? null) !== null
+                && $this->stringOrNull($item['reason'] ?? null) !== null
+                && $this->stringOrNull($item['evidence'] ?? null) !== null
+                && (($item['amount'] ?? null) === null || (is_numeric($item['amount']) && (float) $item['amount'] >= 0));
+            if (! $valid) {
+                $warnings[] = $this->issue('item_assessments.'.($index + 1), 'invalid_item_assessment', 'An item assessment is incomplete or invalid; review the source document.');
+
+                continue;
+            }
+            $result[] = array_intersect_key($item, array_flip(['description', 'amount', 'treatment', 'reason', 'evidence', 'policy_assumptions', 'requires_policy_review']));
+        }
+
+        return $result;
     }
 
     /** @return array{field:string,code:string,message:string} */

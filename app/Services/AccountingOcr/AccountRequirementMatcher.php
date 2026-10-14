@@ -7,15 +7,15 @@ class AccountRequirementMatcher
     public function __construct(private readonly AccountCodeRegistry $registry) {}
 
     /** Validate the required treatment first, then the selected account. Never create or substitute an account. */
-    public function match(array $line, array $accounts): array
+    public function match(array $line, array $accounts, ?string $counterparty = null): array
     {
         $role = $line['required_role'] ?? null;
         $rawPrefix = $line['required_prefix'] ?? null;
         $prefix = is_string($rawPrefix) ? $this->registry->normalize($rawPrefix) : null;
         $type = $line['required_account_type'] ?? null;
         $guidance = $this->registry->guidance($prefix);
-        $control = in_array($role, ['trade_payable', 'trade_receivable'], true) || ($line['requires_control_account'] ?? false) === true;
-        $controlRole = match ($role) {
+        $control = ($line['requires_control_account'] ?? false) === true;
+        $controlRole = ! $control ? null : match ($role) {
             'trade_payable' => 'ap',
             'trade_receivable' => 'ar',
             default => $line['required_control_role'] ?? null,
@@ -39,7 +39,7 @@ class AccountRequirementMatcher
         if (! $valid) {
             return ['account' => null, 'requirement' => $requirement, 'error_code' => 'ACCOUNT_REQUIREMENT_INVALID', 'available_codes' => []];
         }
-        $eligible = array_values(array_filter($accounts, function (array $account) use ($type, $role, $prefix, $control, $controlRole): bool {
+        $eligible = array_values(array_filter($accounts, function (array $account) use ($type, $role, $prefix, $control, $controlRole, $counterparty): bool {
             $accountPrefix = $this->registry->accountPrefix($account);
             $accountGuidance = $this->registry->guidance($accountPrefix);
 
@@ -47,8 +47,13 @@ class AccountRequirementMatcher
                 && ($accountGuidance === null || $accountGuidance['type'] === $account['type'])
                 && $this->registry->accountRole($account) === $role
                 && ($prefix === null || $accountPrefix === $prefix)
+                && ($control || ! in_array($role, ['trade_payable', 'trade_receivable'], true)
+                    || (($account['is_control_account'] ?? false) !== true && $this->matchesCounterparty($account, $counterparty)))
                 && (! $control || (($account['is_control_account'] ?? false) === true && ($account['control_role'] ?? null) === $controlRole));
         }));
+        if (! $control && in_array($role, ['trade_payable', 'trade_receivable'], true) && count($eligible) > 1) {
+            return ['account' => null, 'requirement' => $requirement, 'error_code' => 'ACCOUNT_SELECTION_INVALID', 'available_codes' => array_column($eligible, 'code')];
+        }
         $selected = strtoupper(trim((string) ($line['selected_account_code'] ?? '')));
         if ($selected === '' && ($line['account_error'] ?? null) === 'ACCOUNT_NOT_AVAILABLE') {
             return ['account' => null, 'requirement' => $requirement, 'error_code' => $control && $eligible !== [] ? 'ACCOUNT_SELECTION_INVALID' : 'ACCOUNT_NOT_AVAILABLE', 'available_codes' => array_column($eligible, 'code')];
@@ -64,5 +69,14 @@ class AccountRequirementMatcher
             'error_code' => $eligible === [] ? 'ACCOUNT_NOT_AVAILABLE' : 'ACCOUNT_SELECTION_INVALID',
             'available_codes' => array_column($eligible, 'code'),
         ];
+    }
+
+    /** Require an identity match, not merely a payable/receivable prefix. */
+    private function matchesCounterparty(array $account, ?string $counterparty): bool
+    {
+        $normalize = fn (string $name): string => trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtoupper($name)) ?? '');
+        $identity = $normalize($counterparty ?? '');
+
+        return $identity !== '' && in_array($identity, array_map($normalize, [$account['name'], ...($account['aliases'] ?? [])]), true);
     }
 }

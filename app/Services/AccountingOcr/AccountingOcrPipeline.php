@@ -67,6 +67,10 @@ class AccountingOcrPipeline
         if (! $classificationComplete) {
             $warnings[] = $this->issue('classification', 'economic_classification_unclear', 'Document event or trade nature is unclear; Arkcloudant must review the treatment.');
         }
+        if ((($context['msic'] ?? []) !== [] || $this->stringOrNull($context['business_description'] ?? null) !== null)
+            && $this->stringOrNull($payload['business_context_reason'] ?? null) === null) {
+            $warnings[] = $this->issue('classification', 'business_context_not_explained', 'The proposal does not explain how company MSIC/business nature informed the treatment; review before posting.');
+        }
         if (in_array($payload['document_kind'] ?? null, ['invoice', 'debit_note', 'credit_note', 'bill', 'insurance'], true)
             && ($payload['payment_status'] ?? 'unknown') === 'unknown') {
             $warnings[] = $this->issue('payment_status', 'payment_status_unclear', 'Payment is not established by document terms or bank details; confirm settlement status before posting.');
@@ -95,7 +99,7 @@ class AccountingOcrPipeline
                 $warnings[] = $this->issue('journal_entry.lines.'.($index + 1), 'missing_audit_support', 'The journal line is missing a posting reason or supporting document evidence.');
             }
 
-            $match = $this->accountMatcher->match($sourceLine, $accounts);
+            $match = $this->accountMatcher->match($sourceLine, $accounts, $this->stringOrNull($payload['counterparty'] ?? null));
             $matched = $match['account'];
             $requiredAccount = $match['requirement'];
             if (($payload['trade_nature'] ?? null) === 'trade' && $requiredAccount['role'] === 'other_payable') {
@@ -214,6 +218,7 @@ class AccountingOcrPipeline
                     'economic_event' => $this->stringOrNull($payload['economic_event'] ?? null),
                     'trade_nature' => $payload['trade_nature'] ?? 'unknown',
                     'treatment_summary' => $this->stringOrNull($payload['treatment_summary'] ?? null),
+                    'business_context_reason' => $this->stringOrNull($payload['business_context_reason'] ?? null),
                 ],
                 'business_context' => $context,
                 'prepayment_assessment' => $prepayment,
@@ -261,7 +266,8 @@ class AccountingOcrPipeline
             'counterparty' => $this->stringOrNull($payload['counterparty'] ?? null),
             'description' => $this->stringOrNull($payload['description'] ?? null),
             'document_direction' => $this->documentDirection($payload['document_direction'] ?? null),
-            'currency' => $currency !== '' ? $currency : 'MYR',
+            'currency' => in_array($currency, ['RM', 'MYR', 'RINGGIT', 'MALAYSIAN RINGGIT'], true) || $currency === '' ? 'MYR' : $currency,
+            'source_currency' => $this->stringOrNull($payload['currency'] ?? null),
             'subtotal' => $this->nullableAmount($payload['subtotal'] ?? null),
             'tax' => $this->nullableAmount($payload['tax'] ?? null),
             'total' => $this->nullableAmount($payload['total'] ?? null),

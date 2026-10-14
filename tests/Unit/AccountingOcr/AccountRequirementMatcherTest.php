@@ -23,6 +23,27 @@ class AccountRequirementMatcherTest extends TestCase
         return ['code' => 'BS/CL/TPY/TPTC/10000', 'name' => 'AP Control', 'type' => 'liability', 'subtype' => 'accounts_payable', 'is_control_account' => $control, 'control_role' => $control ? 'ap' : null];
     }
 
+    public function test_direct_supplier_ledger_requires_a_unique_counterparty_match(): void
+    {
+        $account = $this->account(false);
+        $account['name'] = 'SABAH RENOVATION & INTERIOR SDN BHD';
+        $account['aliases'] = ['Sabah Renovation'];
+        $line = $this->requirement($account['code']);
+        $line['requires_control_account'] = false;
+        $line['required_control_role'] = null;
+        $matcher = new AccountRequirementMatcher(new AccountCodeRegistry);
+        $this->assertSame($account, $matcher->match($line, [$account], 'sabah renovation & interior sdn bhd')['account']);
+        $this->assertSame($account, $matcher->match($line, [$account], 'Sabah Renovation')['account']);
+        $this->assertSame('ACCOUNT_NOT_AVAILABLE', $matcher->match($line, [$account], 'Borneo Food Supply')['error_code']);
+        $this->assertSame('ACCOUNT_NOT_AVAILABLE', $matcher->match($line, [$account])['error_code']);
+        $duplicate = $account;
+        $duplicate['code'] = 'BS/CL/TPY/TPTC/10002';
+        $this->assertSame('ACCOUNT_SELECTION_INVALID', $matcher->match($line, [$account, $duplicate], 'Sabah Renovation')['error_code']);
+        $line['requires_control_account'] = true;
+        $line['required_control_role'] = 'ap';
+        $this->assertSame('ACCOUNT_NOT_AVAILABLE', $matcher->match($line, [$account], 'Sabah Renovation')['error_code']);
+    }
+
     public function test_other_creditors_cannot_replace_trade_payables(): void
     {
         $other = ['code' => 'BS/CL/OPY/OPCR/10000', 'name' => 'Other Creditors', 'type' => 'liability', 'subtype' => 'other_payable'];

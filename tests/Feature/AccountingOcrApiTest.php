@@ -39,7 +39,7 @@ class AccountingOcrApiTest extends TestCase
                     $line['required_role'] ??= $guidance['role'] ?? 'expense';
                     $line['required_account_type'] ??= $guidance['type'] ?? 'expense';
                     $line['requires_control_account'] ??= in_array($line['required_role'], ['trade_payable', 'trade_receivable'], true);
-                    $line['required_control_role'] ??= match ($line['required_role']) {
+                    $line['required_control_role'] ??= ! $line['requires_control_account'] ? null : match ($line['required_role']) {
                         'trade_payable' => 'ap', 'trade_receivable' => 'ar', default => null
                     };
                     $line['account_error'] ??= $line['selected_account_code'] === null ? 'ACCOUNT_NOT_AVAILABLE' : null;
@@ -460,6 +460,47 @@ class AccountingOcrApiTest extends TestCase
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */
+    public function test_restaurant_renovation_uses_its_supplier_and_normalizes_rm_currency(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/NA/PPE/RENO/10000', 'name' => 'RENOVATION', 'type' => 'asset', 'subtype' => 'other'];
+        $accounts[] = ['code' => 'BS/CL/TPY/TPTC/10002', 'name' => 'SABAH RENOVATION & INTERIOR SDN BHD', 'type' => 'liability', 'subtype' => 'other'];
+        $accounts[] = ['code' => 'BS/CL/TPY/TPTC/10001', 'name' => 'Borneo Food Supply Sdn Bhd', 'type' => 'liability', 'subtype' => 'other'];
+        $supplier = $this->line('BS/CL/TPY/TPTC/10002', 0, 12250, 'Named supplier balance for premises works', 'Invoice issuer SABAH RENOVATION & INTERIOR SDN BHD');
+        $supplier['requires_control_account'] = false;
+        $supplier['required_control_role'] = null;
+        $reason = '56103/56101 identify restaurant operations; premises improvements require capital/repair assessment, not automatic cost of sales. The supplied supplier ledger records settlement separately from the non-trade event.';
+        $this->bindPayload($this->payload([
+            $this->line('BS/NA/PPE/RENO/10000', 12250, 0, 'Proposed capital improvements subject to company policy', 'Plumbing modifications, rewiring and ventilation works'),
+            $supplier,
+        ], [
+            'counterparty' => 'SABAH RENOVATION & INTERIOR SDN BHD', 'total' => 12250, 'currency' => 'RM',
+            'trade_nature' => 'non_trade', 'business_context_reason' => $reason, 'payment_status' => 'unknown',
+        ]));
+        $this->post('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(), 'accounts' => $accounts, 'msic_code' => '56103', 'additional_msic_codes' => ['56101'],
+        ])->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.1.account_code', 'BS/CL/TPY/TPTC/10002')
+            ->assertJsonPath('data.journal_entry.lines.1.required_account.requires_control_account', false)
+            ->assertJsonPath('data.journal_entry.lines.1.recommendation', null)
+            ->assertJsonPath('data.journal_entry.is_complete', true)
+            ->assertJsonPath('data.extracted.currency', 'MYR')
+            ->assertJsonPath('data.extracted.source_currency', 'RM')
+            ->assertJsonPath('data.classification.business_context_reason', $reason)
+            ->assertJsonMissing(['code' => 'foreign_currency_requires_review']);
+    }
+
+    public function test_unexplained_msic_context_requires_review(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('PL/OE/OEX/OPEX/10001', 100, 0, 'Expense', 'Invoice'),
+            $this->line('BS/CA/CNB/BANK/10000', 0, 100, 'Paid', 'Receipt'),
+        ], ['business_context_reason' => '']));
+        $response = $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts(), 'msic_code' => '56103']);
+        $response->assertOk()->assertJsonPath('validation.is_postable', false);
+        $this->assertContains('business_context_not_explained', array_column($response->json('validation.warnings'), 'code'));
+    }
+
     private function payload(array $lines, array $overrides = []): array
     {
         return array_merge([
@@ -467,6 +508,7 @@ class AccountingOcrApiTest extends TestCase
             'economic_event' => 'Ordinary purchase or sale',
             'trade_nature' => 'non_trade',
             'treatment_summary' => 'Recognise the supported transaction using eligible accounts.',
+            'business_context_reason' => 'Assess the documented purchase against supplied business activities; industry alone does not establish expense or asset treatment.',
             'payment_status' => 'paid',
             'payment_status_evidence' => 'Receipt confirms settlement.',
             'transaction_count' => 1,

@@ -95,9 +95,10 @@ Classification sequence:
 2. Understand the company's actual business nature using its resolved MSIC and description. Supplier MSIC printed on a document is not the company's MSIC.
 3. Determine trade_nature (trade, non_trade, mixed, unknown) from the event and the company's operations, not from the vendor's name or availability of accounts.
 4. Determine accounting treatment and each required account role independently of available accounts.
-5. Match those requirements to eligible company accounts, respecting explicit AP/AR control flags.
+5. Match those requirements to eligible company accounts. Prefer the exact supplier/customer ledger matching the counterparty by name or alias; respect explicit AP/AR control flags when a control is required.
 6. Propose journal amounts and return a concise treatment_summary and document evidence, not hidden reasoning.
-Example: restaurant + supplier invoice + ingredients + unpaid = ordinary trade purchase requiring trade_payable/AP control, not other_payable/OTHER CREDITORS. Distinguish stock still held from cost already consumed under the company's policy.
+Example: restaurant + supplier invoice + ingredients + unpaid = ordinary trade purchase requiring a trade_payable supplier ledger or AP control, not other_payable/OTHER CREDITORS. Distinguish stock still held from cost already consumed under the company's policy.
+Return business_context_reason explaining how the supplied company MSIC activities and actual operations relate to the items, trade/non-trade assessment and expense/inventory/PPE treatment. State uncertainty or missing context instead of treating MSIC as decisive. For restaurant MSIC 56103/56101, ingredients can be ordinary trade inputs, while premises renovation requires a capital/repair assessment rather than automatically cost of sales. Assess improvements versus routine repairs from line evidence and company policy; do not infer capitalisation thresholds from MSIC. The event trade_nature and settlement ledger are separate: a non-trade capital purchase may still use the supplied named supplier ledger under its chart classification. Explain this distinction.
 For credit notes identify whether an incoming supplier reduction or outgoing customer reduction reverses the original expense/inventory/revenue and AP/AR. Use positive amounts on the reversed debit/credit sides; do not treat a credit note as a new sale. Extract original_document_reference. Debit notes can increase an original invoice, charge transport or bill insurance/rent: identify the actual event and original reference rather than assuming a purchase.
 Payment terms such as C.O.D., bank details, a cashier receipt to be issued later, and e-invoice validation timestamps do not prove payment. Supporting pages of one insurance policy are one logical transaction; unrelated invoice numbers may indicate multiple transactions.
 Gemini recommends accounting treatment. Arkcloudant performs final validation, duplicate checks, period checks and posting. No account creation, journal execution or feedback is performed here.
@@ -106,11 +107,12 @@ Rules:
 - The upload must represent one logical transaction. Set transaction_count greater than 1 only for unrelated transactions, not supporting pages for the same transaction.
 - Use only an exact code from AVAILABLE_ACCOUNTS when selected_account_code is non-null.
 - First determine the economic treatment independently of the available account list. For every line return required_role, required_account_type, required_prefix (a canonical library category when known), requires_control_account and required_control_role (ap, ar or null). Do not choose the treatment merely to fit an available account.
-- If the correct supplied account is unavailable, selected_account_code must be null and account_error must be ACCOUNT_NOT_AVAILABLE. Return suggested_account_name as a concise proposed name for the missing account and explain its purpose/required role in reason. The required_prefix describes its recommended category, never a final leaf code. For AP/AR recommend a control account rather than an individual supplier/customer ledger. These are advisory recommendations for Arkcloudant/user review; do not create accounts, invent final codes, or use an unsuitable account to balance the journal. When an available account is matched, suggested_account_name must be null.
-- Trade payables and trade receivables require explicit AP and AR control accounts: is_control_account=true and control_role=ap/ar. A supplier/customer individual ledger is not proof of a control account. Missing metadata means control eligibility is unconfirmed; do not bypass it.
+- If the correct supplied account is unavailable, selected_account_code must be null and account_error must be ACCOUNT_NOT_AVAILABLE. Return suggested_account_name as a concise proposed name for the missing account and explain its purpose/required role in reason. The required_prefix describes its recommended category, never a final leaf code. Recommend the missing supplier/customer ledger when that is required; recommend an AP/AR control only when requires_control_account=true. These are advisory recommendations for Arkcloudant/user review; do not create accounts, invent final codes, or use an unsuitable account to balance the journal. When an available account is matched, suggested_account_name must be null.
+- For supplier invoices prefer the exact named supplier ledger (or exact alias); for outgoing customer documents prefer the exact customer ledger. Use its validated role/category, requires_control_account=false and required_control_role=null. Never select a different counterparty just because its prefix matches. If the matching ledger is absent or ambiguous, use an explicitly marked suitable AP/AR control with requires_control_account=true and required_control_role=ap/ar, or return ACCOUNT_NOT_AVAILABLE. Control-looking names without explicit flags do not establish control eligibility. If a control is explicitly required, an individual ledger cannot bypass it.
 - Existing bank, expense, inventory or other creditors are not substitutes for a required trade payable control account. Preserve the required amount and role in an incomplete proposal.
 - Each line must have a positive amount on exactly one of debit or credit. The full proposal must balance.
 - Do not invent exchange rates, tax, dates, references, counterparties, payment methods, or amounts.
+- Return MYR for Malaysian currency printed as RM/Ringgit; preserve genuine foreign currency ISO codes.
 - Separate tax only when it is explicitly printed.
 - Evidence must be a short document fragment supporting the line. Reason must explain the accounting treatment.
 - Confidence is 0.0 to 1.0.
@@ -159,6 +161,7 @@ PROMPT
                 'economic_event' => ['type' => 'string'],
                 'trade_nature' => ['type' => 'string', 'enum' => ['trade', 'non_trade', 'mixed', 'unknown']],
                 'treatment_summary' => ['type' => 'string'],
+                'business_context_reason' => ['type' => 'string'],
                 'reference_number' => $nullableString,
                 'counterparty' => $nullableString,
                 'description' => $nullableString,
@@ -214,7 +217,7 @@ PROMPT
                     ],
                 ],
             ],
-            'required' => ['document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'service_periods', 'overall_confidence', 'lines'],
+            'required' => ['document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'service_periods', 'overall_confidence', 'lines'],
         ];
     }
 

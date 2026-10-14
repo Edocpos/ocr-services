@@ -58,6 +58,8 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Maize grower with software services')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'TRADE CREDITORS')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Classification sequence:')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'prefer the exact named supplier ledger')
+            && data_get($request->data(), 'generationConfig.responseSchema.properties.business_context_reason.type') === 'string'
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Arkcloudant')
             && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.required_role.type') === 'string'
             && data_get($request->data(), 'generationConfig.responseSchema.properties.lines.items.properties.requires_control_account.type') === 'boolean'

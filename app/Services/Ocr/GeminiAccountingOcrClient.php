@@ -116,6 +116,7 @@ Rules:
 - Do not invent exchange rates, tax, dates, references, counterparties, payment methods, or amounts.
 - Return MYR for Malaysian currency printed as RM/Ringgit; preserve genuine foreign currency ISO codes.
 - Separate tax only when it is explicitly printed.
+- Each journal line description must briefly describe the transaction amount in plain language.
 - Evidence must be a short document fragment supporting the line. Reason must explain the accounting treatment.
 - Confidence is 0.0 to 1.0.
 
@@ -223,6 +224,7 @@ PROMPT
                         'type' => 'object',
                         'properties' => [
                             'selected_account_code' => $nullableString,
+                            'description' => ['type' => 'string'],
                             'suggested_account_name' => $nullableString,
                             'required_role' => ['type' => 'string', 'enum' => (new AccountCodeRegistry)->roles()],
                             'required_account_type' => ['type' => 'string', 'enum' => ['asset', 'liability', 'equity', 'revenue', 'expense']],
@@ -236,7 +238,7 @@ PROMPT
                             'reason' => ['type' => 'string'],
                             'evidence' => ['type' => 'string'],
                         ],
-                        'required' => ['selected_account_code', 'suggested_account_name', 'required_role', 'required_account_type', 'required_prefix', 'requires_control_account', 'required_control_role', 'account_error', 'debit', 'credit', 'confidence', 'reason', 'evidence'],
+                        'required' => ['selected_account_code', 'description', 'suggested_account_name', 'required_role', 'required_account_type', 'required_prefix', 'requires_control_account', 'required_control_role', 'account_error', 'debit', 'credit', 'confidence', 'reason', 'evidence'],
                     ],
                 ],
             ],

@@ -6,6 +6,7 @@ use App\Exceptions\AccountingOcrException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProcessAccountingOcrRequest;
 use App\Services\AccountingOcr\AccountingOcrPipeline;
+use App\Services\AccountingOcr\AccountingOcrResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ use Throwable;
 
 class AccountingOcrController extends Controller
 {
-    public function __invoke(ProcessAccountingOcrRequest $request, AccountingOcrPipeline $pipeline): JsonResponse
+    public function __invoke(ProcessAccountingOcrRequest $request, AccountingOcrPipeline $pipeline, AccountingOcrResponse $response): JsonResponse
     {
         $requestId = (string) Str::uuid();
         Log::withContext([
@@ -26,13 +27,13 @@ class AccountingOcrController extends Controller
         @set_time_limit((int) config('ocr.request_max_execution_seconds', 120));
 
         try {
-            return response()->json($pipeline->process(
+            return response()->json($response->format($pipeline->process(
                 $request->file('document'),
                 $request->accounts(),
                 $request->companyContext(),
                 $requestId,
                 $request->accountingContext(),
-            ));
+            )), 200, [], JSON_PRESERVE_ZERO_FRACTION);
         } catch (AccountingOcrException $exception) {
             return response()->json($exception->toArray(), $exception->status);
         } catch (Throwable $exception) {

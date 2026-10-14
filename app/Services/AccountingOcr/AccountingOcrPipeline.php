@@ -136,6 +136,7 @@ class AccountingOcrPipeline
             $journalLines[] = [
                 'account_code' => $matched['code'] ?? null,
                 'account_name' => $matched['name'] ?? null,
+                'description' => $this->stringOrNull($sourceLine['description'] ?? null) ?? $this->stringOrNull($payload['description'] ?? null) ?? 'Transaction posting',
                 'debit' => $debit,
                 'credit' => $credit,
                 'match_status' => $matchStatus,

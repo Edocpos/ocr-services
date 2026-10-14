@@ -466,16 +466,17 @@ class AccountingOcrApiTest extends TestCase
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */
-    public function test_restaurant_renovation_uses_its_supplier_and_normalizes_rm_currency(): void
+    public function test_restaurant_renovation_uses_its_other_creditor_and_normalizes_rm_currency(): void
     {
         $accounts = $this->accounts();
         $accounts[] = ['code' => 'BS/NA/PPE/RENO/10000', 'name' => 'RENOVATION', 'type' => 'asset', 'subtype' => 'other'];
         $accounts[] = ['code' => 'BS/CL/TPY/TPTC/10002', 'name' => 'SABAH RENOVATION & INTERIOR SDN BHD', 'type' => 'liability', 'subtype' => 'other'];
         $accounts[] = ['code' => 'BS/CL/TPY/TPTC/10001', 'name' => 'Borneo Food Supply Sdn Bhd', 'type' => 'liability', 'subtype' => 'other'];
-        $supplier = $this->line('BS/CL/TPY/TPTC/10002', 0, 12250, 'Named supplier balance for premises works', 'Invoice issuer SABAH RENOVATION & INTERIOR SDN BHD');
+        $accounts[] = ['code' => 'BS/CL/OPY/OPCR/10002', 'name' => 'SABAH RENOVATION & INTERIOR SDN BHD', 'type' => 'liability', 'subtype' => 'other_payable'];
+        $supplier = $this->line('BS/CL/OPY/OPCR/10002', 0, 12250, 'Named supplier balance for premises works', 'Invoice issuer SABAH RENOVATION & INTERIOR SDN BHD');
         $supplier['requires_control_account'] = false;
         $supplier['required_control_role'] = null;
-        $reason = '56103/56101 identify restaurant operations; premises improvements require capital/repair assessment, not automatic cost of sales. The supplied supplier ledger records settlement separately from the non-trade event.';
+        $reason = '56103/56101 identify restaurant operations; premises improvements require capital/repair assessment, not automatic cost of sales. Renovation is outside ordinary restaurant trading inputs and requires Other Creditors.';
         $this->bindPayload($this->payload([
             $this->line('BS/NA/PPE/RENO/10000', 12250, 0, 'Proposed capital improvements subject to company policy', 'Plumbing modifications, rewiring and ventilation works'),
             $supplier,
@@ -486,7 +487,7 @@ class AccountingOcrApiTest extends TestCase
         $this->post('/api/ocr/accounting', [
             'document' => $this->fakeDocument(), 'accounts' => $accounts, 'msic_code' => '56103', 'additional_msic_codes' => ['56101'],
         ])->assertOk()
-            ->assertJsonPath('data.journal_entry.lines.1.account_code', 'BS/CL/TPY/TPTC/10002')
+            ->assertJsonPath('data.journal_entry.lines.1.account_code', 'BS/CL/OPY/OPCR/10002')
             ->assertJsonPath('data.journal_entry.lines.1.required_account.requires_control_account', false)
             ->assertJsonPath('data.journal_entry.lines.1.recommendation', null)
             ->assertJsonPath('data.journal_entry.is_complete', true)
@@ -494,6 +495,33 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('data.extracted.source_currency', 'RM')
             ->assertJsonPath('data.classification.business_context_reason', $reason)
             ->assertJsonMissing(['code' => 'foreign_currency_requires_review']);
+    }
+
+    public function test_non_trade_renovation_cannot_use_a_named_trade_creditor(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/NA/PPE/RENO/10000', 'name' => 'RENOVATION', 'type' => 'asset', 'subtype' => 'other'];
+        $accounts[] = ['code' => 'BS/CL/TPY/TPTC/10002', 'name' => 'SABAH RENOVATION & INTERIOR SDN BHD', 'type' => 'liability', 'subtype' => 'other'];
+        foreach ([false, true] as $correctRequirement) {
+            $creditor = $this->line($correctRequirement ? null : 'BS/CL/TPY/TPTC/10002', 0, 100, 'Renovation is outside ordinary restaurant trading inputs; Other Creditors required.', 'Renovation contractor invoice');
+            $creditor['requires_control_account'] = false;
+            $creditor['required_control_role'] = null;
+            if ($correctRequirement) {
+                $creditor['required_prefix'] = 'BS/CL/OPY/OPCR';
+                $creditor['suggested_account_name'] = 'Other Payables - Sabah Renovation & Interior Sdn Bhd';
+            }
+            $this->bindPayload($this->payload([
+                $this->line('BS/NA/PPE/RENO/10000', 100, 0, 'Proposed renovation asset', 'Renovation works'), $creditor,
+            ], ['trade_nature' => 'non_trade', 'counterparty' => 'SABAH RENOVATION & INTERIOR SDN BHD']));
+            $response = $this->post('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $accounts, 'msic_code' => '56103', 'posting_date' => '2026-09-21']);
+            $response->assertOk()->assertJsonPath('data.journal_entry.lines.1.account_code', null)
+                ->assertJsonPath('data.journal_entry.lines.1.error_code', $correctRequirement ? 'ACCOUNT_NOT_AVAILABLE' : 'ACCOUNT_TREATMENT_CONFLICT')
+                ->assertJsonPath('validation.is_postable', false);
+            if ($correctRequirement) {
+                $response->assertJsonPath('data.journal_entry.lines.1.recommendation.parent_code', 'BS/CL/OPY/OPCR')
+                    ->assertJsonPath('data.journal_entry.lines.1.recommendation.role', 'other_payable');
+            }
+        }
     }
 
     public function test_unexplained_msic_context_requires_review(): void
@@ -600,7 +628,7 @@ class AccountingOcrApiTest extends TestCase
         return array_merge([
             'document_kind' => 'invoice',
             'economic_event' => 'Ordinary purchase or sale',
-            'trade_nature' => 'non_trade',
+            'trade_nature' => 'trade',
             'treatment_summary' => 'Recognise the supported transaction using eligible accounts.',
             'business_context_reason' => 'Assess the documented purchase against supplied business activities; industry alone does not establish expense or asset treatment.',
             'payment_status' => 'paid',

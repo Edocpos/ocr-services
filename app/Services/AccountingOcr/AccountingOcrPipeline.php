@@ -106,7 +106,8 @@ class AccountingOcrPipeline
             $match = $this->accountMatcher->match($sourceLine, $accounts, $this->stringOrNull($payload['counterparty'] ?? null));
             $matched = $match['account'];
             $requiredAccount = $match['requirement'];
-            if (($payload['trade_nature'] ?? null) === 'trade' && $requiredAccount['role'] === 'other_payable') {
+            if ((($payload['trade_nature'] ?? null) === 'trade' && $requiredAccount['role'] === 'other_payable')
+                || (($payload['trade_nature'] ?? null) === 'non_trade' && $requiredAccount['role'] === 'trade_payable')) {
                 $matched = null;
                 $match['error_code'] = 'ACCOUNT_TREATMENT_CONFLICT';
             }
@@ -119,7 +120,7 @@ class AccountingOcrPipeline
                 $errors[] = $this->issue('journal_entry.source_lines.'.($index + 1), $match['error_code'], match ($match['error_code']) {
                     'ACCOUNT_NOT_AVAILABLE' => 'No supplied account satisfies the required accounting classification and control role. Arkcloudant must resolve this requirement before posting.',
                     'ACCOUNT_SELECTION_INVALID' => 'The selected account does not satisfy the required role. Eligible accounts exist, but no account was substituted automatically.',
-                    'ACCOUNT_TREATMENT_CONFLICT' => 'A normal trade obligation cannot be classified as OTHER CREDITORS; review the required trade payable control role.',
+                    'ACCOUNT_TREATMENT_CONFLICT' => 'The creditor role contradicts the economic event: ordinary trading inputs require Trade Creditors; non-trade purchases require Other Creditors. Supplier identity cannot override the required category.',
                     default => 'The provider did not supply a valid accounting requirement before selecting an account.',
                 });
             }

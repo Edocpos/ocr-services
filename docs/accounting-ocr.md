@@ -25,7 +25,7 @@ Named supplier/customer matching must satisfy the required classification. Trade
 
 Debit/credit amounts are decimal strings with exactly two places. Confidence remains numeric. Matched entries sharing the same account, treatment and debit/credit side are grouped; opposing sides are never netted. Supporting reasons/evidence are retained in the public strings. Missing accounts remain separate.
 
-For a missing account, account_code is null and account_name is a proposed name, not an existing account. recommendation contains only parent_definition_key, parent_code, account_type and account_subtype. Matched accounts return recommendation=null. OCR does not allocate leaf codes or create accounts. Arkcloudant reviews the requirement, chooses or creates the appropriate account, and resubmits the chart.
+For a missing account, account_code is null and account_name is a proposed name, not an existing account. Named supplier recommendations use the supplier name alone, with no creditor-category prefix; the category is in recommendation. recommendation contains only parent_definition_key, parent_code, account_type and account_subtype. Matched accounts return recommendation=null. OCR does not allocate leaf codes or create accounts. Arkcloudant reviews the requirement, chooses or creates the appropriate account, and resubmits the chart.
 
 Validation messages and warning fields are preserved from the internal checks. Line validation uses zero-based paths such as journal_entry.lines[1], referring to the grouped public lines. ACCOUNT_NOT_AVAILABLE, ACCOUNT_SELECTION_INVALID, ACCOUNT_REQUIREMENT_INVALID and ACCOUNT_TREATMENT_CONFLICT block posting. Operational/provider failures retain their HTTP error responses; request validation failures return HTTP 422.
 
@@ -63,7 +63,7 @@ Business context, detailed classification, item assessments, source lines, accou
         },
         {
           "account_code": null,
-          "account_name": "OTHER CREDITORS - SABAH RENOVATION & INTERIOR SDN BHD",
+          "account_name": "SABAH RENOVATION & INTERIOR SDN BHD",
           "description": "Amount payable for restaurant renovation",
           "debit": "0.00",
           "credit": "12250.00",

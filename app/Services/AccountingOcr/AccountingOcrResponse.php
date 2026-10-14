@@ -17,7 +17,7 @@ class AccountingOcrResponse
             $recommendation = $line['recommendation'];
             $publicLines[] = [
                 'account_code' => $line['account_code'],
-                'account_name' => $line['account_name'] ?? ($recommendation['suggested_name'] ?? null),
+                'account_name' => $this->accountName($line, $result['data']['extracted']['counterparty']),
                 'description' => count($line['audit_support']) > 1 ? ($result['data']['extracted']['description'] ?? $line['description']) : $line['description'],
                 'debit' => number_format($line['debit'], 2, '.', ''),
                 'credit' => number_format($line['credit'], 2, '.', ''),
@@ -47,6 +47,21 @@ class AccountingOcrResponse
                 'errors' => $this->issues($result['validation']['errors'], $sourceMap),
             ],
         ];
+    }
+
+    private function accountName(array $line, ?string $counterparty): ?string
+    {
+        if ($line['account_name'] !== null) {
+            return $line['account_name'];
+        }
+        $recommendation = $line['recommendation'];
+        if ($recommendation !== null && ($recommendation['requires_control_account'] ?? false) === false
+            && in_array($recommendation['role'], ['trade_payable', 'other_payable'], true)
+            && trim($counterparty ?? '') !== '') {
+            return trim($counterparty);
+        }
+
+        return $recommendation['suggested_name'] ?? null;
     }
 
     private function issues(array $issues, array $sourceMap): array

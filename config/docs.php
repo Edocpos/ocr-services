@@ -272,7 +272,7 @@ return [
                                             ],
                                             [
                                                 'account_code' => null,
-                                                'account_name' => 'OTHER CREDITORS - SABAH RENOVATION & INTERIOR SDN BHD',
+                                                'account_name' => 'SABAH RENOVATION & INTERIOR SDN BHD',
                                                 'description' => 'Amount payable for restaurant renovation',
                                                 'debit' => '0.00',
                                                 'credit' => '12250.00',

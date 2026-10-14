@@ -51,7 +51,7 @@ class AccountingOcrApiTest extends TestCase
         $response->assertOk()->assertJsonPath('data.journal_entry.lines.0.debit', '100.00')
             ->assertJsonPath('data.journal_entry.lines.0.credit', '0.00')
             ->assertJsonPath('data.journal_entry.lines.1.account_code', null)
-            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'OTHER CREDITORS - Renovation Contractor')
+            ->assertJsonPath('data.journal_entry.lines.1.account_name', 'Renovation Contractor')
             ->assertJsonPath('data.journal_entry.lines.1.recommendation', [
                 'parent_definition_key' => 'OPCR', 'parent_code' => 'BS/CL/OPY/OPCR', 'account_type' => 'liability', 'account_subtype' => 'other_payable',
             ])

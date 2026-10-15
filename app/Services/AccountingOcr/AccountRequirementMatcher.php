@@ -7,7 +7,7 @@ class AccountRequirementMatcher
     public function __construct(private readonly AccountCodeRegistry $registry) {}
 
     /** Validate the required treatment first, then the selected account. Never create or substitute an account. */
-    public function match(array $line, array $accounts, ?string $counterparty = null): array
+    public function match(array $line, array $accounts, ?string $counterparty = null, ?string $documentKind = null): array
     {
         $role = $line['required_role'] ?? null;
         $rawPrefix = $line['required_prefix'] ?? null;
@@ -39,7 +39,7 @@ class AccountRequirementMatcher
         if (! $valid) {
             return ['account' => null, 'requirement' => $requirement, 'error_code' => 'ACCOUNT_REQUIREMENT_INVALID', 'available_codes' => []];
         }
-        $eligible = array_values(array_filter($accounts, function (array $account) use ($type, $role, $prefix, $control, $controlRole, $counterparty): bool {
+        $eligible = array_values(array_filter($accounts, function (array $account) use ($type, $role, $prefix, $control, $controlRole, $counterparty, $line, $documentKind): bool {
             $accountPrefix = $this->registry->accountPrefix($account);
             $accountGuidance = $this->registry->guidance($accountPrefix);
 
@@ -47,6 +47,7 @@ class AccountRequirementMatcher
                 && ($accountGuidance === null || $accountGuidance['type'] === $account['type'])
                 && $this->registry->accountRole($account) === $role
                 && ($prefix === null || $accountPrefix === $prefix)
+                && $this->matchesPrepaymentPurpose($account, $role, $line, $documentKind)
                 && ($control || ! in_array($role, ['trade_payable', 'trade_receivable'], true)
                     || (($account['is_control_account'] ?? false) !== true && $this->matchesCounterparty($account, $counterparty)))
                 && (! $control || (($account['is_control_account'] ?? false) === true && ($account['control_role'] ?? null) === $controlRole));
@@ -69,6 +70,26 @@ class AccountRequirementMatcher
             'error_code' => $eligible === [] ? 'ACCOUNT_NOT_AVAILABLE' : 'ACCOUNT_SELECTION_INVALID',
             'available_codes' => array_column($eligible, 'code'),
         ];
+    }
+
+    /** A named prepayment ledger is limited to its stated purpose, even within PRMT. */
+    private function matchesPrepaymentPurpose(array $account, ?string $role, array $line, ?string $documentKind): bool
+    {
+        if ($role !== 'prepayment') {
+            return true;
+        }
+
+        $name = mb_strtolower((string) ($account['name'] ?? ''));
+        $context = mb_strtolower(implode(' ', array_filter([
+            $documentKind, $line['description'] ?? null, $line['reason'] ?? null, $line['evidence'] ?? null,
+        ], 'is_string')));
+        foreach (['/\broad\s+tax\b/u', '/\binsurance\b/u', '/\brent(?:al)?\b/u', '/\bsubscription\b/u'] as $pattern) {
+            if (preg_match($pattern, $name) && ! preg_match($pattern, $context)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Require an identity match, not merely a payable/receivable prefix. */

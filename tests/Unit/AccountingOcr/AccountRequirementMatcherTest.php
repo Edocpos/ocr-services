@@ -108,4 +108,26 @@ class AccountRequirementMatcherTest extends TestCase
         $result = (new AccountRequirementMatcher(new AccountCodeRegistry))->match($this->requirement('AP-CONTROL'), [$account]);
         $this->assertSame('AP-CONTROL', $result['account']['code']);
     }
+
+    public function test_insurance_cannot_use_a_road_tax_prepayment_ledger(): void
+    {
+        $line = [
+            'selected_account_code' => 'BS/CA/ORV/PRMT/10000',
+            'required_role' => 'prepayment', 'required_account_type' => 'asset',
+            'required_prefix' => 'BS/CA/ORV/PRMT', 'requires_control_account' => false,
+            'required_control_role' => null, 'account_error' => null,
+            'description' => 'Fire insurance premium', 'reason' => 'Future insurance coverage',
+        ];
+        $roadTax = ['code' => 'BS/CA/ORV/PRMT/10000', 'name' => 'Prepaid Road Tax', 'type' => 'asset', 'subtype' => 'other'];
+        $matcher = new AccountRequirementMatcher(new AccountCodeRegistry);
+
+        $result = $matcher->match($line, [$roadTax], null, 'insurance');
+        $this->assertNull($result['account']);
+        $this->assertSame('ACCOUNT_NOT_AVAILABLE', $result['error_code']);
+        $this->assertSame([], $result['available_codes']);
+
+        $insurance = ['code' => 'BS/CA/ORV/PRMT/10001', 'name' => 'Prepaid Insurance', 'type' => 'asset', 'subtype' => 'other'];
+        $line['selected_account_code'] = $insurance['code'];
+        $this->assertSame($insurance, $matcher->match($line, [$roadTax, $insurance], null, 'insurance')['account']);
+    }
 }

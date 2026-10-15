@@ -103,7 +103,7 @@ class AccountingOcrPipeline
                 $warnings[] = $this->issue('journal_entry.source_lines.'.($index + 1), 'missing_audit_support', 'The journal line is missing a posting reason or supporting document evidence.');
             }
 
-            $match = $this->accountMatcher->match($sourceLine, $accounts, $this->stringOrNull($payload['counterparty'] ?? null));
+            $match = $this->accountMatcher->match($sourceLine, $accounts, $this->stringOrNull($payload['counterparty'] ?? null), $this->stringOrNull($payload['document_kind'] ?? null));
             $matched = $match['account'];
             $requiredAccount = $match['requirement'];
             if ((($payload['trade_nature'] ?? null) === 'trade' && $requiredAccount['role'] === 'other_payable')
@@ -151,7 +151,7 @@ class AccountingOcrPipeline
                 'reason' => trim((string) ($sourceLine['reason'] ?? '')),
                 'evidence' => trim((string) ($sourceLine['evidence'] ?? '')),
                 'recommendation' => $match['error_code'] === 'ACCOUNT_NOT_AVAILABLE'
-                    ? $this->accountRecommendations->recommend($sourceLine, $requiredAccount)
+                    ? $this->accountRecommendations->recommend($sourceLine, $requiredAccount, $this->stringOrNull($payload['document_kind'] ?? null))
                     : null,
             ];
         }

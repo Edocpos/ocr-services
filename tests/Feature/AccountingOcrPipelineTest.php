@@ -750,6 +750,25 @@ class AccountingOcrPipelineTest extends TestCase
             ->assertJsonCount(2, 'data.journal_entry.lines');
     }
 
+    public function test_insurance_premium_does_not_match_prepaid_road_tax(): void
+    {
+        $accounts = $this->accounts();
+        $accounts[] = ['code' => 'BS/CA/ORV/PRMT/10000', 'name' => 'Prepaid Road Tax', 'type' => 'asset', 'subtype' => 'other'];
+        $this->bindPayload($this->payload([
+            $this->line('BS/CA/ORV/PRMT/10000', 1634.38, 0, 'Advance payment for future fire insurance coverage', 'Premium 1,634.38'),
+            $this->line('PL/OE/OEX/OPEX/10001', 140.75, 0, 'Stamp duty and tax expense', 'Tax and stamp duty 140.75'),
+            $this->line(null, 0, 1775.13, 'Insurance payable to Zurich', 'Total payable 1,775.13'),
+        ], ['document_kind' => 'insurance', 'total' => 1775.13]));
+
+        $this->processAccounting('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(), 'accounts' => json_encode($accounts),
+        ])->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.0.account_code', null)
+            ->assertJsonPath('data.journal_entry.lines.0.error_code', 'ACCOUNT_NOT_AVAILABLE')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.suggested_name', 'Prepaid Insurance')
+            ->assertJsonPath('validation.is_postable', false);
+    }
+
     public function test_sample_trade_purchase_cannot_use_other_creditors_or_a_supplier_ledger(): void
     {
         $accounts = $this->accounts();

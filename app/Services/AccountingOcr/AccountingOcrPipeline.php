@@ -173,7 +173,7 @@ class AccountingOcrPipeline
                 'reason' => trim((string) ($sourceLine['reason'] ?? '')),
                 'evidence' => trim((string) ($sourceLine['evidence'] ?? '')),
                 'recommendation' => $match['error_code'] === 'ACCOUNT_NOT_AVAILABLE'
-                    ? $this->accountRecommendations->recommend($sourceLine, $requiredAccount, $this->stringOrNull($payload['document_kind'] ?? null))
+                    ? $this->accountRecommendations->recommend($sourceLine, $requiredAccount, $this->stringOrNull($payload['document_kind'] ?? null), $this->stringOrNull($payload['counterparty'] ?? null))
                     : null,
             ];
         }

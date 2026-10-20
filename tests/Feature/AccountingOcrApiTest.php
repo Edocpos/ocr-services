@@ -108,6 +108,24 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('validation.errors.0.code', 'journal_proposal_missing');
     }
 
+    public function test_missing_customer_ledger_names_the_customer_instead_of_trade_debtors(): void
+    {
+        $payload = $this->payload();
+        $payload['document_kind'] = 'credit_note';
+        $payload['document_direction'] = 'outgoing';
+        $payload['counterparty'] = 'SHINY ALUMINIUM GLASS SDN BHD';
+        $payload['lines'] = [
+            ['selected_account_code' => null, 'suggested_account_name' => 'TRADE DEBTORS', 'description' => 'Credit note reduces customer balance', 'debit' => 0, 'credit' => 100, 'confidence' => 0.9, 'reason' => 'Reverse receivable', 'evidence' => 'Customer: SHINY ALUMINIUM GLASS SDN BHD', 'required_role' => 'trade_receivable', 'required_account_type' => 'asset', 'required_prefix' => 'BS/CA/TRV/TRDB', 'requires_control_account' => false, 'required_control_role' => null, 'account_error' => 'ACCOUNT_NOT_AVAILABLE'],
+            ['selected_account_code' => null, 'suggested_account_name' => 'Sales Income', 'description' => 'Reverse sales', 'debit' => 100, 'credit' => 0, 'confidence' => 0.9, 'reason' => 'Reverse revenue', 'evidence' => 'Credit note total RM100', 'required_role' => 'revenue', 'required_account_type' => 'revenue', 'required_prefix' => 'PL/TI/TIN/SLIC', 'requires_control_account' => false, 'required_control_role' => null, 'account_error' => 'ACCOUNT_NOT_AVAILABLE'],
+        ];
+
+        $this->request($payload)->assertOk()
+            ->assertJsonPath('data.journal_entry.lines.0.account_code', null)
+            ->assertJsonPath('data.journal_entry.lines.0.account_name', 'SHINY ALUMINIUM GLASS SDN BHD')
+            ->assertJsonPath('data.journal_entry.lines.0.recommendation.parent_code', 'BS/CA/TRV/TRDB')
+            ->assertJsonPath('validation.is_postable', false);
+    }
+
     public function test_a_document_without_readable_transaction_fields_stays_unreadable(): void
     {
         $payload = $this->payload();

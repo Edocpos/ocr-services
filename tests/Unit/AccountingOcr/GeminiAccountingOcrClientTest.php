@@ -60,6 +60,7 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Classification sequence:')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'only within the correct required category')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Restaurant renovation is non_trade under this classification policy')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'It may contain a test or placeholder company name')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Ordinary premises electricity and a levy charged as part of that electricity consumption fit GENERAL EXPENSES')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Legacy PL/NE/AEX/GNEX codes are linked to that same category')
             && data_get($request->data(), 'generationConfig.responseSchema.properties.business_context_reason.type') === 'string'

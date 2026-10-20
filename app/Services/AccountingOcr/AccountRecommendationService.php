@@ -7,13 +7,18 @@ class AccountRecommendationService
     public function __construct(private readonly AccountCodeRegistry $registry) {}
 
     /** Describe a missing account for review using the validated requirement, never a generated leaf code. */
-    public function recommend(array $line, array $requirement, ?string $documentKind = null): array
+    public function recommend(array $line, array $requirement, ?string $documentKind = null, ?string $counterparty = null): array
     {
         $guidance = $this->registry->guidance($requirement['parent_code']);
         $name = is_string($line['suggested_account_name'] ?? null) ? trim($line['suggested_account_name']) : '';
         $parent = $requirement['parent_code'];
         if ($requirement['role'] === 'prepayment' && $documentKind === 'insurance') {
             $name = 'Prepaid Insurance';
+        }
+        if ($requirement['role'] === 'trade_receivable'
+            && $requirement['requires_control_account'] === false
+            && trim($counterparty ?? '') !== '') {
+            $name = trim($counterparty);
         }
 
         return $requirement + [

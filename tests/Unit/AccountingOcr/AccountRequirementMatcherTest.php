@@ -44,6 +44,20 @@ class AccountRequirementMatcherTest extends TestCase
         $this->assertSame('ACCOUNT_NOT_AVAILABLE', $matcher->match($line, [$account], 'Sabah Renovation')['error_code']);
     }
 
+    public function test_credit_note_cannot_use_another_customers_receivable_ledger(): void
+    {
+        $account = ['code' => 'BS/CA/TRV/TRDB/10000', 'name' => 'USINA SDN BHD', 'type' => 'asset', 'subtype' => 'other', 'aliases' => []];
+        $line = [
+            'selected_account_code' => $account['code'], 'required_role' => 'trade_receivable',
+            'required_account_type' => 'asset', 'required_prefix' => 'BS/CA/TRV/TRDB',
+            'requires_control_account' => false, 'required_control_role' => null, 'account_error' => null,
+        ];
+
+        $result = (new AccountRequirementMatcher(new AccountCodeRegistry))->match($line, [$account], 'SHINY ALUMINIUM GLASS SDN BHD', 'credit_note');
+        $this->assertNull($result['account']);
+        $this->assertSame('ACCOUNT_NOT_AVAILABLE', $result['error_code']);
+    }
+
     public function test_other_creditors_cannot_replace_trade_payables(): void
     {
         $other = ['code' => 'BS/CL/OPY/OPCR/10000', 'name' => 'Other Creditors', 'type' => 'liability', 'subtype' => 'other_payable'];

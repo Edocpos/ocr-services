@@ -90,4 +90,34 @@ class AccountingOcrApiTest extends TestCase
         $this->assertStringContainsString('Second item RM40', $response->json('data.journal_entry.lines.0.evidence'));
         $this->assertStringNotContainsString('audit_support', $response->json('data.journal_entry.lines.0.reason'));
     }
+
+    public function test_readable_credit_note_without_a_journal_proposal_requires_review(): void
+    {
+        $payload = $this->payload();
+        $payload['transaction_count'] = 0;
+        $payload['document_kind'] = 'credit_note';
+        $payload['reference_number'] = '999900397';
+        $payload['total'] = 20;
+        $payload['lines'] = [];
+
+        $this->request($payload)->assertOk()
+            ->assertJsonPath('data.extracted.reference_number', '999900397')
+            ->assertJsonCount(0, 'data.journal_entry.lines')
+            ->assertJsonPath('validation.status', 'review_required')
+            ->assertJsonPath('validation.is_postable', false)
+            ->assertJsonPath('validation.errors.0.code', 'journal_proposal_missing');
+    }
+
+    public function test_a_document_without_readable_transaction_fields_stays_unreadable(): void
+    {
+        $payload = $this->payload();
+        $payload['transaction_count'] = 0;
+        $payload['document_kind'] = 'unknown';
+        $payload['reference_number'] = null;
+        $payload['total'] = null;
+        $payload['lines'] = [];
+
+        $this->request($payload)->assertStatus(422)
+            ->assertJsonPath('error_code', 'accounting_document_unreadable');
+    }
 }

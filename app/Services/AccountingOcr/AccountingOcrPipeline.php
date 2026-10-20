@@ -49,13 +49,35 @@ class AccountingOcrPipeline
         if ($transactionCount > 1) {
             throw AccountingOcrException::multipleTransactions();
         }
-        if ($transactionCount === 0 || ! is_array($payload['lines'] ?? null) || $payload['lines'] === []) {
+        $lines = $payload['lines'] ?? null;
+        $hasJournalLines = is_array($lines) && $lines !== [];
+        $hasReadableDocument = in_array($payload['document_kind'] ?? null, ['invoice', 'debit_note', 'credit_note', 'bill', 'receipt', 'insurance', 'other'], true)
+            && $this->stringOrNull($payload['reference_number'] ?? null) !== null
+            && is_numeric($payload['total'] ?? null) && (float) $payload['total'] > 0;
+        if (! $hasJournalLines || $transactionCount === 0) {
+            Log::info('accounting_ocr_extraction_diagnostics', [
+                'request_id' => $requestId,
+                'transaction_count' => $transactionCount,
+                'line_count' => is_array($lines) ? count($lines) : 0,
+                'document_kind' => $payload['document_kind'] ?? null,
+                'has_reference' => $this->stringOrNull($payload['reference_number'] ?? null) !== null,
+                'has_positive_total' => is_numeric($payload['total'] ?? null) && (float) $payload['total'] > 0,
+            ]);
+        }
+        if (! $hasJournalLines && ! $hasReadableDocument) {
             throw AccountingOcrException::unreadable();
         }
 
         $registry = new AccountCodeRegistry;
         $errors = [];
         $warnings = [];
+        if (! $hasJournalLines) {
+            $payload['lines'] = [];
+            $errors[] = $this->issue('journal_entry', 'journal_proposal_missing', 'The document was read, but a reliable journal entry could not be proposed. Arkcloudant must review the document and accounting treatment.');
+        }
+        if ($transactionCount === 0) {
+            $warnings[] = $this->issue('document', 'transaction_count_uncertain', 'The document appears to contain a transaction, but the transaction count needs review.');
+        }
         $journalLines = [];
         $hasUnmatched = false;
         $cashDebit = 0.0;
@@ -159,7 +181,7 @@ class AccountingOcrPipeline
         $totalDebit = round(array_sum(array_column($journalLines, 'debit')), 2);
         $totalCredit = round(array_sum(array_column($journalLines, 'credit')), 2);
         $isBalanced = $totalDebit > 0 && abs($totalDebit - $totalCredit) <= 0.01;
-        if (! $isBalanced) {
+        if (! $isBalanced && $hasJournalLines) {
             $errors[] = $this->issue('journal_entry', 'unbalanced_entry', 'Total debits must equal total credits within 0.01.');
         }
 
@@ -169,7 +191,9 @@ class AccountingOcrPipeline
                 $errors[] = $this->issue($amountField, 'negative_document_amount', 'Extracted document amounts cannot be negative.');
             }
         }
-        $this->validateDocumentTotals($extracted, $totalDebit, $errors);
+        if ($hasJournalLines) {
+            $this->validateDocumentTotals($extracted, $totalDebit, $errors);
+        }
 
         $currency = $extracted['currency'];
         if ($currency !== 'MYR') {
@@ -252,7 +276,7 @@ class AccountingOcrPipeline
                     'total_debit' => $totalDebit,
                     'total_credit' => $totalCredit,
                     'is_balanced' => $isBalanced,
-                    'is_complete' => ! $hasUnmatched,
+                    'is_complete' => $hasJournalLines && ! $hasUnmatched,
                 ],
             ],
             'validation' => [

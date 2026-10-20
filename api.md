@@ -319,7 +319,7 @@ Request: `multipart/form-data`
 | Field | Required | Rules |
 |---|---:|---|
 | `document` | Yes | PDF, JPG, PNG or WebP. Max 10 MB. One logical transaction. |
-| `company` | No | JSON company snapshot or other free-form company context. It is forwarded as supplied and has no required schema. Used to identify whether the document is incoming, outgoing, or internal. |
+| `company` | No | JSON company snapshot as an object or JSON-encoded string, or other free-form company context. It has no required schema. Used to identify whether the document is incoming, outgoing, or internal. |
 | `accounts` | Yes | JSON array of 1–500 accounts with unique `code`, `name`, `type`, `subtype`, and optional `aliases`. |
 
 Account types are `asset`, `liability`, `equity`, `revenue`, and `expense`. Subtypes are `cash`, `bank`, `accounts_receivable`, `accounts_payable`, `input_tax`, `output_tax`, and `other`.

@@ -129,6 +129,22 @@ class AccountingOcrPipelineTest extends TestCase
             ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher');
     }
 
+    public function test_it_accepts_a_company_object_and_passes_it_as_json_context(): void
+    {
+        $this->bindPayload($this->payload([
+            $this->line('BS/CA/CNB/BANK/10000', 100, 0, 'Customer paid us', 'Paid RM100'),
+            $this->line('PL/OI/RIN/SLIC/10000', 0, 100, 'Sale to customer', 'Invoice total RM100'),
+        ]));
+
+        $this->processAccounting('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(),
+            'company' => ['name' => 'ACME SDN BHD', 'role' => 'invoice issuer'],
+            'accounts' => json_encode($this->accounts()),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.extracted.document_direction', 'outgoing');
+    }
+
     public function test_it_returns_a_general_voucher_for_a_credit_supplier_invoice(): void
     {
         $this->bindPayload($this->payload([

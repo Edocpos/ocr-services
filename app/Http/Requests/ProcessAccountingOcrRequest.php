@@ -19,6 +19,14 @@ class ProcessAccountingOcrRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $company = $this->input('company');
+        if (is_array($company)) {
+            $encoded = json_encode($company, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if (is_string($encoded)) {
+                $this->merge(['company' => $encoded]);
+            }
+        }
+
         foreach (['accounts', 'additional_msic_codes'] as $field) {
             $value = $this->input($field);
             if (is_string($value)) {

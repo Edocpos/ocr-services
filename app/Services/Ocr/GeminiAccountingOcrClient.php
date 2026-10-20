@@ -87,6 +87,7 @@ COMPANY_CONTEXT is a JSON snapshot or other free-form data supplied by the user 
 - internal: the transaction is internal, such as a cash-to-bank transfer or journal adjustment.
 - unknown: the direction cannot be established reliably.
 - A supplied company that matches neither document party does not make the document unreadable. Still extract its printed kind, reference, date, parties, items and amounts, and count its logical transaction. Set document_direction=unknown; if the company-specific debit/credit treatment cannot be established, return lines=[] and explain the identity mismatch in treatment_summary. Do not invent a match to the company or an account.
+- A scan-only PDF may have no embedded text. Read the visible page image before deciding fields are missing. Several item rows on one credit note are one logical transaction; sum only the printed line amounts and use the printed document total when available. If some item text is unclear, preserve reliable header and total fields and mark uncertainty instead of discarding the whole document.
 - A supplier invoice addressed to the company normally debits an expense/asset and credits payable or bank.
 - An invoice issued by the company normally debits receivable/bank and credits revenue and any explicit output tax.
 - Do not guess the direction when document roles or the journal perspective are unclear. A company-name mismatch by itself does not make clear document roles unknown; it may be caused by test data. Do not state that a mismatched company issued or received the document.

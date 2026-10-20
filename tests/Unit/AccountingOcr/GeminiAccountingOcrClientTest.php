@@ -58,6 +58,7 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Maize grower with software services')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'TRADE CREDITORS')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'A supplied company that matches neither document party does not make the document unreadable')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'A scan-only PDF may have no embedded text')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Classification sequence:')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'only within the correct required category')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Restaurant renovation is non_trade under this classification policy')

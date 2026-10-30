@@ -256,6 +256,7 @@ return [
                                     ],
                                     'classification' => [
                                         'voucher_type' => 'general_voucher',
+                                        'document_kind' => 'supplier_bill',
                                     ],
                                     'journal_entry' => [
                                         'lines' => [

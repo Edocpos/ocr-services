@@ -211,6 +211,7 @@ class AccountingOcrPipeline
             $cashNet < -0.01 => 'payment_voucher',
             default => 'general_voucher',
         };
+        $documentKind = $this->routingDocumentKind($payload);
         if ($isTransfer) {
             $warnings[] = $this->issue('voucher_type', 'cash_bank_transfer', 'The entry transfers value between cash or bank accounts and is classified as a general voucher.');
         }
@@ -260,7 +261,7 @@ class AccountingOcrPipeline
                 'extracted' => $extracted,
                 'classification' => [
                     'voucher_type' => $voucherType,
-                    'document_kind' => $payload['document_kind'] ?? 'unknown',
+                    'document_kind' => $documentKind,
                     'economic_event' => $this->stringOrNull($payload['economic_event'] ?? null),
                     'trade_nature' => $payload['trade_nature'] ?? 'unknown',
                     'treatment_summary' => $this->stringOrNull($payload['treatment_summary'] ?? null),
@@ -298,6 +299,43 @@ class AccountingOcrPipeline
                 'request_id' => $requestId,
             ],
         ];
+    }
+
+    private function routingDocumentKind(array $payload): string
+    {
+        $kind = $payload['routing_document_kind'] ?? 'unknown';
+        $direction = $payload['document_direction'] ?? 'unknown';
+        $status = $payload['payment_status'] ?? 'unknown';
+        $sourceKind = $payload['document_kind'] ?? 'unknown';
+        $lines = is_array($payload['lines'] ?? null) ? $payload['lines'] : [];
+        $hasPayable = false;
+        $hasReceivable = false;
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+            $role = $line['required_role'] ?? null;
+            $hasPayable = $hasPayable || (in_array($role, ['trade_payable', 'other_payable'], true) && (float) ($line['credit'] ?? 0) > 0);
+            $hasReceivable = $hasReceivable || ($role === 'trade_receivable' && (float) ($line['debit'] ?? 0) > 0);
+        }
+
+        return match (true) {
+            $kind === 'supplier_bill' && $direction === 'incoming'
+                && in_array($sourceKind, ['invoice', 'bill', 'insurance', 'debit_note'], true)
+                && ! in_array($status, ['paid', 'partially_paid'], true)
+                && ($status === 'unpaid' || $hasPayable) => $kind,
+            $kind === 'supplier_payment' && $direction === 'incoming'
+                && in_array($status, ['paid', 'partially_paid'], true) => $kind,
+            $kind === 'customer_invoice' && $direction === 'outgoing'
+                && in_array($sourceKind, ['invoice', 'bill', 'debit_note'], true)
+                && ! in_array($status, ['paid', 'partially_paid'], true)
+                && ($status === 'unpaid' || $hasReceivable) => $kind,
+            $kind === 'customer_receipt' && $direction === 'outgoing'
+                && in_array($status, ['paid', 'partially_paid'], true) => $kind,
+            $kind === 'journal' && $direction === 'internal' && $status === 'unknown' && ! $hasPayable && ! $hasReceivable
+                && ! in_array($sourceKind, ['invoice', 'bill', 'receipt', 'credit_note', 'debit_note'], true) => $kind,
+            default => 'unknown',
+        };
     }
 
     /** @return array<string, mixed> */

@@ -95,6 +95,7 @@ COMPANY_CONTEXT is a JSON snapshot or other free-form data supplied by the user 
 
 Classification sequence:
 1. Identify document_kind (invoice, debit_note, credit_note, bill, receipt, insurance, other, unknown) and the economic_event from document evidence. Do not infer economic meaning from a document title alone.
+   Also return routing_document_kind for Arkcloudant: supplier_bill for an unpaid supplier invoice, utility/telco bill or purchase bill; supplier_payment for a confirmed payment to a supplier; customer_invoice for an unpaid customer invoice; customer_receipt for a confirmed payment from a customer; journal only for a GL adjustment that is not an open AR/AP document; otherwise unknown. Use document direction, settlement evidence and economic event together. Do not infer settlement from payment terms or bank instructions. Prefer unknown when the module is uncertain. A supplier_bill can still have a general_voucher voucher type.
 2. Understand the company's actual business nature using its resolved MSIC and description. Supplier MSIC printed on a document is not the company's MSIC.
 3. Determine trade_nature (trade, non_trade, mixed, unknown) by whether the items are normal inputs to the company's principal trading activity, not merely whether they benefit operations. Trade means ordinary trading supplies/inputs such as ingredients for a restaurant. Non-trade means purchases outside that trading activity, such as restaurant premises renovation, capital improvements or administrative purchases. A business purpose or operational benefit alone does not make a purchase trade. Use mixed for combined ordinary trading inputs and non-trade items; unknown when actual use is unclear.
 4. Determine accounting treatment and each required account role independently of available accounts.
@@ -169,6 +170,7 @@ PROMPT
                 'payment_date' => $nullableString,
                 'original_document_reference' => $nullableString,
                 'document_kind' => ['type' => 'string', 'enum' => ['invoice', 'debit_note', 'credit_note', 'bill', 'receipt', 'insurance', 'other', 'unknown']],
+                'routing_document_kind' => ['type' => 'string', 'enum' => ['supplier_bill', 'supplier_payment', 'customer_invoice', 'customer_receipt', 'journal', 'unknown']],
                 'economic_event' => ['type' => 'string'],
                 'trade_nature' => ['type' => 'string', 'enum' => ['trade', 'non_trade', 'mixed', 'unknown']],
                 'treatment_summary' => ['type' => 'string'],
@@ -248,7 +250,7 @@ PROMPT
                     ],
                 ],
             ],
-            'required' => ['document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'payment_evidence_kind', 'payment_instruction_reference', 'payment_instructions', 'item_assessments', 'service_periods', 'overall_confidence', 'lines'],
+            'required' => ['document_kind', 'routing_document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'payment_evidence_kind', 'payment_instruction_reference', 'payment_instructions', 'item_assessments', 'service_periods', 'overall_confidence', 'lines'],
         ];
     }
 

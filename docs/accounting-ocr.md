@@ -19,7 +19,7 @@ Named supplier/customer matching must satisfy the required classification. Trade
 ## Response
 
 - `data.extracted`: transaction_date, reference_number, counterparty, description, currency.
-- `data.classification`: voucher_type only.
+- `data.classification`: voucher_type and document_kind. The latter is one of `supplier_bill`, `supplier_payment`, `customer_invoice`, `customer_receipt`, `journal`, or `unknown`.
 - `data.journal_entry.lines`: account_code, account_name, description, debit, credit, confidence, reason, evidence, recommendation.
 - `validation`: status, is_postable, requires_manual_review, warnings, errors.
 
@@ -46,7 +46,8 @@ Business context, detailed classification, item assessments, source lines, accou
       "currency": "MYR"
     },
     "classification": {
-      "voucher_type": "general_voucher"
+      "voucher_type": "general_voucher",
+      "document_kind": "supplier_bill"
     },
     "journal_entry": {
       "lines": [

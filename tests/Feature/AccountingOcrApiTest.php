@@ -12,7 +12,7 @@ class AccountingOcrApiTest extends TestCase
     private function payload(): array
     {
         return [
-            'transaction_count' => 1, 'document_kind' => 'invoice', 'document_direction' => 'incoming',
+            'transaction_count' => 1, 'document_kind' => 'invoice', 'routing_document_kind' => 'supplier_bill', 'document_direction' => 'incoming',
             'transaction_date' => '2026-09-21', 'invoice_date' => '2026-09-21',
             'reference_number' => 'INV-001', 'counterparty' => 'Renovation Contractor', 'description' => 'Restaurant renovation costs',
             'currency' => 'MYR', 'subtotal' => 100, 'tax' => 0, 'total' => 100,
@@ -63,12 +63,33 @@ class AccountingOcrApiTest extends TestCase
         $this->assertSame(['data', 'validation'], array_keys($body));
         $this->assertSame(['extracted', 'classification', 'journal_entry'], array_keys($body['data']));
         $this->assertSame(['transaction_date', 'reference_number', 'counterparty', 'description', 'currency'], array_keys($body['data']['extracted']));
-        $this->assertSame(['voucher_type'], array_keys($body['data']['classification']));
+        $this->assertSame(['voucher_type', 'document_kind'], array_keys($body['data']['classification']));
+        $this->assertSame('general_voucher', $body['data']['classification']['voucher_type']);
+        $this->assertSame('supplier_bill', $body['data']['classification']['document_kind']);
         $this->assertSame(['lines'], array_keys($body['data']['journal_entry']));
         $this->assertSame(['account_code', 'account_name', 'description', 'debit', 'credit', 'confidence', 'reason', 'evidence', 'recommendation'], array_keys($body['data']['journal_entry']['lines'][0]));
         $this->assertSame(['status', 'is_postable', 'requires_manual_review', 'warnings', 'errors'], array_keys($body['validation']));
         $this->assertNotEmpty($body['validation']['warnings']);
         $this->assertContains('capitalisation', array_column($body['validation']['warnings'], 'field'));
+    }
+
+    public function test_uncertain_or_invalid_routing_kind_falls_back_to_unknown(): void
+    {
+        $payload = $this->payload();
+        $payload['routing_document_kind'] = 'credit_note';
+        $this->request($payload)->assertOk()->assertJsonPath('data.classification.document_kind', 'unknown');
+
+        $payload['routing_document_kind'] = 'supplier_payment';
+        $this->request($payload)->assertOk()->assertJsonPath('data.classification.document_kind', 'unknown');
+
+        $payload['routing_document_kind'] = 'supplier_bill';
+        $payload['payment_status'] = 'paid';
+        $payload['payment_evidence_kind'] = 'settlement_confirmation';
+        $payload['payment_status_evidence'] = 'Payment confirmed';
+        $this->request($payload)->assertOk()->assertJsonPath('data.classification.document_kind', 'unknown');
+
+        $payload['routing_document_kind'] = 'supplier_payment';
+        $this->request($payload)->assertOk()->assertJsonPath('data.classification.document_kind', 'supplier_payment');
     }
 
     public function test_error_indices_follow_grouped_public_lines_and_all_evidence_is_retained(): void

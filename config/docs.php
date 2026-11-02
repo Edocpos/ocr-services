@@ -320,6 +320,33 @@ return [
                                     ],
                                 ],
                             ]],
+                            ['label' => '200 OK — Supplier credit note routing', 'status' => 200, 'json' => [
+                                'data' => [
+                                    'extracted' => [
+                                        'transaction_date' => '2026-03-31',
+                                        'reference_number' => 'CN-001',
+                                        'counterparty' => 'Example Supplier Sdn Bhd',
+                                        'description' => 'Supplier credit for returned goods',
+                                        'currency' => 'MYR',
+                                    ],
+                                    'classification' => [
+                                        'voucher_type' => 'general_voucher',
+                                        'document_kind' => 'supplier_credit_note',
+                                    ],
+                                    'journal_entry' => ['lines' => []],
+                                ],
+                                'validation' => [
+                                    'status' => 'review_required',
+                                    'is_postable' => false,
+                                    'requires_manual_review' => true,
+                                    'warnings' => [],
+                                    'errors' => [[
+                                        'field' => 'journal_entry',
+                                        'code' => 'journal_proposal_missing',
+                                        'message' => 'The document was read, but a reliable journal entry could not be proposed. Arkcloudant must review the document and accounting treatment.',
+                                    ]],
+                                ],
+                            ]],
                         ],
                         'error_codes' => [
                             ['code' => 'ACCOUNT_NOT_AVAILABLE', 'http' => 200, 'note' => 'Proposal blocked: required role/control missing; see the proposed account_name and recommendation category. No account created.'],

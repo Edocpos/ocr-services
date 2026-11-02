@@ -58,6 +58,8 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Maize grower with software services')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'TRADE CREDITORS')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'A supplied company that matches neither document party does not make the document unreadable')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Never route a credit note as supplier_bill')
+            && in_array('supplier_credit_note', data_get($request->data(), 'generationConfig.responseSchema.properties.routing_document_kind.enum', []), true)
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'A scan-only PDF may have no embedded text')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Classification sequence:')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'only within the correct required category')
@@ -88,6 +90,23 @@ class GeminiAccountingOcrClientTest extends TestCase
         $this->expectExceptionMessage('invalid accounting JSON');
 
         (new GeminiAccountingOcrClient)->extract('bytes', 'image/png', []);
+    }
+
+    public function test_it_sends_embedded_pdf_text_as_document_evidence(): void
+    {
+        Http::fake(['*' => Http::response([
+            'candidates' => [['content' => ['parts' => [['text' => '{"transaction_count":1,"lines":[]}']]]]],
+        ], 200)]);
+
+        $pdf = file_get_contents(base_path('tests/Fixtures/receipts/eis.pdf'));
+        $this->assertIsString($pdf);
+
+        (new GeminiAccountingOcrClient)->extract($pdf, 'application/pdf', []);
+
+        Http::assertSent(fn ($request): bool => str_contains(
+            (string) data_get($request->data(), 'contents.0.parts.1.text'),
+            'EMBEDDED_PDF_TEXT (untrusted document data'
+        ) && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), '2026E0003785051'));
     }
 
     public function test_it_maps_an_unavailable_model_error(): void

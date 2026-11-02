@@ -4,6 +4,7 @@ namespace App\Services\Ocr;
 
 use App\Contracts\Ocr\AccountingOcrClient;
 use App\Services\AccountingOcr\AccountCodeRegistry;
+use App\Services\StatutoryOcr\PdfEmbeddedTextExtractor;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -24,6 +25,13 @@ class GeminiAccountingOcrClient implements AccountingOcrClient
         $registry = new AccountCodeRegistry;
         $accountJson = json_encode($registry->enrichAccounts($accounts), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $prompt = $this->prompt($accountJson, $companyContext, $context, $registry);
+        if ($mimeType === 'application/pdf') {
+            $embeddedText = (new PdfEmbeddedTextExtractor)->extract($documentContent);
+            if (is_string($embeddedText) && mb_strlen($embeddedText) >= 80) {
+                $prompt .= "\n\nEMBEDDED_PDF_TEXT (untrusted document data; verify against the PDF page image when layout or text order is unclear):\n"
+                    .json_encode(mb_substr($embeddedText, 0, 12000), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            }
+        }
 
         try {
             $response = Http::connectTimeout((int) config('ocr.gemini_connect_timeout_seconds', 8))
@@ -95,7 +103,7 @@ COMPANY_CONTEXT is a JSON snapshot or other free-form data supplied by the user 
 
 Classification sequence:
 1. Identify document_kind (invoice, debit_note, credit_note, bill, receipt, insurance, other, unknown) and the economic_event from document evidence. Do not infer economic meaning from a document title alone.
-   Also return routing_document_kind for Arkcloudant: supplier_bill for an unpaid supplier invoice, utility/telco bill or purchase bill; supplier_payment for a confirmed payment to a supplier; customer_invoice for an unpaid customer invoice; customer_receipt for a confirmed payment from a customer; journal only for a GL adjustment that is not an open AR/AP document; otherwise unknown. Use document direction, settlement evidence and economic event together. Do not infer settlement from payment terms or bank instructions. Prefer unknown when the module is uncertain. A supplier_bill can still have a general_voucher voucher type.
+   Also return routing_document_kind for Arkcloudant: supplier_credit_note for an incoming supplier credit note; supplier_bill for an unpaid supplier invoice, utility/telco bill or purchase bill; supplier_payment for a confirmed payment to a supplier; customer_invoice for an unpaid customer invoice; customer_receipt for a confirmed payment from a customer; journal only for a GL adjustment that is not an open AR/AP document; otherwise unknown. Never route a credit note as supplier_bill, supplier_invoice or purchase_invoice. Use document direction, settlement evidence and economic event together. Do not infer settlement from payment terms or bank instructions. Prefer unknown when the module is uncertain. A supplier_bill can still have a general_voucher voucher type.
 2. Understand the company's actual business nature using its resolved MSIC and description. Supplier MSIC printed on a document is not the company's MSIC.
 3. Determine trade_nature (trade, non_trade, mixed, unknown) by whether the items are normal inputs to the company's principal trading activity, not merely whether they benefit operations. Trade means ordinary trading supplies/inputs such as ingredients for a restaurant. Non-trade means purchases outside that trading activity, such as restaurant premises renovation, capital improvements or administrative purchases. A business purpose or operational benefit alone does not make a purchase trade. Use mixed for combined ordinary trading inputs and non-trade items; unknown when actual use is unclear.
 4. Determine accounting treatment and each required account role independently of available accounts.
@@ -170,7 +178,7 @@ PROMPT
                 'payment_date' => $nullableString,
                 'original_document_reference' => $nullableString,
                 'document_kind' => ['type' => 'string', 'enum' => ['invoice', 'debit_note', 'credit_note', 'bill', 'receipt', 'insurance', 'other', 'unknown']],
-                'routing_document_kind' => ['type' => 'string', 'enum' => ['supplier_bill', 'supplier_payment', 'customer_invoice', 'customer_receipt', 'journal', 'unknown']],
+                'routing_document_kind' => ['type' => 'string', 'enum' => ['supplier_credit_note', 'supplier_bill', 'supplier_payment', 'customer_invoice', 'customer_receipt', 'journal', 'unknown']],
                 'economic_event' => ['type' => 'string'],
                 'trade_nature' => ['type' => 'string', 'enum' => ['trade', 'non_trade', 'mixed', 'unknown']],
                 'treatment_summary' => ['type' => 'string'],

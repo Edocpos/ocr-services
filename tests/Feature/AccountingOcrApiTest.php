@@ -92,6 +92,29 @@ class AccountingOcrApiTest extends TestCase
         $this->request($payload)->assertOk()->assertJsonPath('data.classification.document_kind', 'supplier_payment');
     }
 
+    public function test_incoming_credit_note_routes_separately_from_supplier_bills(): void
+    {
+        $payload = $this->payload();
+        $payload['document_kind'] = 'credit_note';
+        $payload['routing_document_kind'] = 'supplier_bill';
+        $payload['lines'][1] = [
+            'selected_account_code' => null, 'suggested_account_name' => 'Cash at Bank',
+            'description' => 'Supplier refund', 'debit' => 0, 'credit' => 100,
+            'confidence' => 0.9, 'reason' => 'Refund proposal', 'evidence' => 'Credit note RM100',
+            'required_role' => 'bank', 'required_account_type' => 'asset',
+            'required_prefix' => 'BS/CA/CNB/BANK', 'requires_control_account' => false,
+            'required_control_role' => null, 'account_error' => 'ACCOUNT_NOT_AVAILABLE',
+        ];
+
+        $this->request($payload)->assertOk()
+            ->assertJsonPath('data.classification.document_kind', 'supplier_credit_note')
+            ->assertJsonPath('data.classification.voucher_type', 'general_voucher');
+
+        $payload['document_direction'] = 'outgoing';
+        $this->request($payload)->assertOk()
+            ->assertJsonPath('data.classification.document_kind', 'unknown');
+    }
+
     public function test_error_indices_follow_grouped_public_lines_and_all_evidence_is_retained(): void
     {
         $payload = $this->payload();
@@ -123,6 +146,8 @@ class AccountingOcrApiTest extends TestCase
 
         $this->request($payload)->assertOk()
             ->assertJsonPath('data.extracted.reference_number', '999900397')
+            ->assertJsonPath('data.classification.document_kind', 'supplier_credit_note')
+            ->assertJsonPath('data.classification.voucher_type', 'general_voucher')
             ->assertJsonCount(0, 'data.journal_entry.lines')
             ->assertJsonPath('validation.status', 'review_required')
             ->assertJsonPath('validation.is_postable', false)

@@ -836,7 +836,8 @@ class AccountingOcrPipelineTest extends TestCase
             'total' => 423.60, 'payment_status' => 'unpaid', 'payment_status_evidence' => 'Adjustment against outstanding supplier balance',
         ]));
         $this->processAccounting('/api/ocr/accounting', ['document' => $this->fakeDocument(), 'accounts' => $this->accounts()])
-            ->assertOk()->assertJsonPath('data.classification.document_kind', 'unknown')
+            ->assertOk()->assertJsonPath('data.classification.document_kind', 'supplier_credit_note')
+            ->assertJsonPath('data.classification.voucher_type', 'general_voucher')
             ->assertJsonPath('data.extracted.original_document_reference', 'ORIGINAL-INVOICE')
             ->assertJsonPath('data.journal_entry.lines.0.debit', 423.6)
             ->assertJsonPath('data.journal_entry.lines.0.required_account.control_role', 'ap')

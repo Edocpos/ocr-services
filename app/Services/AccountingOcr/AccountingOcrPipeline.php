@@ -205,13 +205,14 @@ class AccountingOcrPipeline
 
         $cashNet = round($cashDebit - $cashCredit, 2);
         $isTransfer = $cashDebit > 0 && $cashCredit > 0 && abs($cashNet) <= 0.01;
+        $documentKind = $this->routingDocumentKind($payload);
         $voucherType = match (true) {
+            $documentKind === 'supplier_credit_note' => 'general_voucher',
             $isTransfer => 'general_voucher',
             $cashNet > 0.01 => 'receipt_voucher',
             $cashNet < -0.01 => 'payment_voucher',
             default => 'general_voucher',
         };
-        $documentKind = $this->routingDocumentKind($payload);
         if ($isTransfer) {
             $warnings[] = $this->issue('voucher_type', 'cash_bank_transfer', 'The entry transfers value between cash or bank accounts and is classified as a general voucher.');
         }
@@ -307,6 +308,10 @@ class AccountingOcrPipeline
         $direction = $payload['document_direction'] ?? 'unknown';
         $status = $payload['payment_status'] ?? 'unknown';
         $sourceKind = $payload['document_kind'] ?? 'unknown';
+        if ($sourceKind === 'credit_note') {
+            return $direction === 'incoming' ? 'supplier_credit_note' : 'unknown';
+        }
+
         $lines = is_array($payload['lines'] ?? null) ? $payload['lines'] : [];
         $hasPayable = false;
         $hasReceivable = false;

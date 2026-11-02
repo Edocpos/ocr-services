@@ -331,7 +331,7 @@ curl --location 'http://127.0.0.1:8000/api/ocr/accounting' \
   --form 'accounts=[{"code":"BS/CA/CNB/BANK/10000","name":"Maybank","type":"asset","subtype":"bank","aliases":[]},{"code":"PL/OE/OEX/OPEX/10000","name":"Office Expenses","type":"expense","subtype":"other","aliases":[]}]'
 ```
 
-The compact response includes `data.classification.voucher_type` and `data.classification.document_kind`. The latter is always one of `supplier_bill`, `supplier_payment`, `customer_invoice`, `customer_receipt`, `journal`, or `unknown`; `unknown` means Arkcloudant should use its voucher-only fallback. A supplier bill can retain `general_voucher` as its voucher type.
+The compact response includes `data.classification.voucher_type` and `data.classification.document_kind`. The latter is always one of `supplier_credit_note`, `supplier_bill`, `supplier_payment`, `customer_invoice`, `customer_receipt`, `journal`, or `unknown`; `unknown` means Arkcloudant should use its voucher-only fallback. Incoming supplier credit notes return `supplier_credit_note` with `general_voucher`, even when the provider suggests a bill route. They must open a Supplier Credit Note draft, never a Supplier Bill draft. A supplier bill can retain `general_voucher` as its voucher type.
 
 If no submitted account is suitable, the line returns `account_code: null`, places the proposed name in `account_name`, and sets `match_status: new_account_recommended`. Its `recommendation` contains only Acc01 creation metadata: `account_type`, `account_subtype`, `parent_code`, `parent_definition_key`, and `create_parent_if_missing`. The OCR service never invents the final five-level leaf code; Arkcloudant assigns it after user acceptance.
 

@@ -95,6 +95,7 @@ COMPANY_CONTEXT is a JSON snapshot or other free-form data supplied by the user 
 - internal: the transaction is internal, such as a cash-to-bank transfer or journal adjustment.
 - unknown: the direction cannot be established reliably.
 - A supplied company that matches neither document party does not make the document unreadable. Still extract its printed kind, reference, date, parties, items and amounts, and count its logical transaction. Set document_direction=unknown; if the company-specific debit/credit treatment cannot be established, return lines=[] and explain the identity mismatch in treatment_summary. Do not invent a match to the company or an account.
+- Always return the exact printed issuer_name and buyer_name separately when shown. For an unknown bookkeeping direction, set counterparty=null; neither printed party can safely be called the counterparty of the bookkeeping company. Keep the printed document_kind and amount even when routing_document_kind is unknown.
 - A scan-only PDF may have no embedded text. Read the visible page image before deciding fields are missing. Several item rows on one credit note are one logical transaction; sum only the printed line amounts and use the printed document total when available. If some item text is unclear, preserve reliable header and total fields and mark uncertainty instead of discarding the whole document.
 - A supplier invoice addressed to the company normally debits an expense/asset and credits payable or bank.
 - An invoice issued by the company normally debits receivable/bank and credits revenue and any explicit output tax.
@@ -184,6 +185,8 @@ PROMPT
                 'treatment_summary' => ['type' => 'string'],
                 'business_context_reason' => ['type' => 'string'],
                 'reference_number' => $nullableString,
+                'issuer_name' => $nullableString,
+                'buyer_name' => $nullableString,
                 'counterparty' => $nullableString,
                 'description' => $nullableString,
                 'document_direction' => [
@@ -258,7 +261,7 @@ PROMPT
                     ],
                 ],
             ],
-            'required' => ['document_kind', 'routing_document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'payment_evidence_kind', 'payment_instruction_reference', 'payment_instructions', 'item_assessments', 'service_periods', 'overall_confidence', 'lines'],
+            'required' => ['document_kind', 'routing_document_kind', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'invoice_date', 'event_date', 'payment_date', 'original_document_reference', 'issuer_name', 'buyer_name', 'transaction_count', 'document_direction', 'payment_status', 'payment_status_evidence', 'payment_evidence_kind', 'payment_instruction_reference', 'payment_instructions', 'item_assessments', 'service_periods', 'overall_confidence', 'lines'],
         ];
     }
 

@@ -35,7 +35,7 @@ class AccountingOcrResponse
 
         return [
             'data' => [
-                'extracted' => array_intersect_key($result['data']['extracted'], array_flip(['transaction_date', 'reference_number', 'counterparty', 'description', 'currency'])),
+                'extracted' => array_intersect_key($result['data']['extracted'], array_flip(['transaction_date', 'reference_number', 'counterparty', 'description', 'currency', 'source_document_kind', 'issuer_name', 'buyer_name', 'total', 'original_document_reference'])),
                 'classification' => [
                     'voucher_type' => $result['data']['classification']['voucher_type'],
                     'document_kind' => $result['data']['classification']['document_kind'],

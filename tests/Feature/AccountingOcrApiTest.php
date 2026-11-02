@@ -62,7 +62,7 @@ class AccountingOcrApiTest extends TestCase
         $body = $response->json();
         $this->assertSame(['data', 'validation'], array_keys($body));
         $this->assertSame(['extracted', 'classification', 'journal_entry'], array_keys($body['data']));
-        $this->assertSame(['transaction_date', 'reference_number', 'counterparty', 'description', 'currency'], array_keys($body['data']['extracted']));
+        $this->assertSame(['transaction_date', 'original_document_reference', 'source_document_kind', 'reference_number', 'issuer_name', 'buyer_name', 'counterparty', 'description', 'currency', 'total'], array_keys($body['data']['extracted']));
         $this->assertSame(['voucher_type', 'document_kind'], array_keys($body['data']['classification']));
         $this->assertSame('general_voucher', $body['data']['classification']['voucher_type']);
         $this->assertSame('supplier_bill', $body['data']['classification']['document_kind']);
@@ -152,6 +152,34 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('validation.status', 'review_required')
             ->assertJsonPath('validation.is_postable', false)
             ->assertJsonPath('validation.errors.0.code', 'journal_proposal_missing');
+    }
+
+    public function test_credit_note_preserves_printed_facts_when_demo_company_matches_neither_party(): void
+    {
+        $payload = $this->payload();
+        $payload['document_kind'] = 'credit_note';
+        $payload['routing_document_kind'] = 'unknown';
+        $payload['document_direction'] = 'unknown';
+        $payload['transaction_date'] = '2026-03-31';
+        $payload['reference_number'] = '999900397';
+        $payload['issuer_name'] = 'Hap Seng Plantations (River Estates) Sdn Bhd';
+        $payload['buyer_name'] = 'YEE SHUN FOOD SUPPLIES SDN BHD';
+        $payload['counterparty'] = 'YEE SHUN FOOD SUPPLIES SDN BHD';
+        $payload['description'] = 'Reversal Stamp Duty Certificate Fee';
+        $payload['original_document_reference'] = '999900303';
+        $payload['total'] = 20;
+        $payload['lines'] = [];
+
+        $this->request($payload)->assertOk()
+            ->assertJsonPath('data.extracted.source_document_kind', 'credit_note')
+            ->assertJsonPath('data.extracted.issuer_name', 'Hap Seng Plantations (River Estates) Sdn Bhd')
+            ->assertJsonPath('data.extracted.buyer_name', 'YEE SHUN FOOD SUPPLIES SDN BHD')
+            ->assertJsonPath('data.extracted.counterparty', null)
+            ->assertJsonPath('data.extracted.total', 20.0)
+            ->assertJsonPath('data.extracted.original_document_reference', '999900303')
+            ->assertJsonPath('data.classification.document_kind', 'unknown')
+            ->assertJsonCount(0, 'data.journal_entry.lines')
+            ->assertJsonPath('validation.is_postable', false);
     }
 
     public function test_missing_customer_ledger_names_the_customer_instead_of_trade_debtors(): void

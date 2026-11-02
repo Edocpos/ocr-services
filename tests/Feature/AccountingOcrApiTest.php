@@ -182,6 +182,33 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('validation.is_postable', false);
     }
 
+    public function test_buyer_side_credit_note_proposal_routes_but_cannot_post_without_a_confirmed_perspective(): void
+    {
+        $payload = $this->payload();
+        $payload['document_kind'] = 'credit_note';
+        $payload['routing_document_kind'] = 'unknown';
+        $payload['document_direction'] = 'unknown';
+        $payload['issuer_name'] = 'Hap Seng Plantations (River Estates) Sdn Bhd';
+        $payload['buyer_name'] = 'YEE SHUN FOOD SUPPLIES SDN BHD';
+        $payload['total'] = 20;
+        $payload['lines'] = [
+            array_replace($payload['lines'][1], [
+                'debit' => 20, 'credit' => 0, 'required_role' => 'other_payable',
+            ]),
+            array_replace($payload['lines'][0], [
+                'selected_account_code' => null, 'debit' => 0, 'credit' => 20,
+                'required_role' => 'expense', 'required_account_type' => 'expense',
+                'required_prefix' => 'PL/OE/OEX/GNEX',
+            ]),
+        ];
+
+        $response = $this->request($payload)->assertOk()
+            ->assertJsonPath('data.classification.document_kind', 'supplier_credit_note')
+            ->assertJsonPath('validation.is_postable', false);
+
+        $this->assertContains('document_perspective_unclear', array_column($response->json('validation.errors'), 'code'));
+    }
+
     public function test_missing_customer_ledger_names_the_customer_instead_of_trade_debtors(): void
     {
         $payload = $this->payload();

@@ -206,6 +206,9 @@ class AccountingOcrPipeline
         $cashNet = round($cashDebit - $cashCredit, 2);
         $isTransfer = $cashDebit > 0 && $cashCredit > 0 && abs($cashNet) <= 0.01;
         $documentKind = $this->routingDocumentKind($payload);
+        if (($payload['document_kind'] ?? null) === 'credit_note' && ($payload['document_direction'] ?? 'unknown') === 'unknown' && $hasJournalLines) {
+            $errors[] = $this->issue('document_direction', 'document_perspective_unclear', 'Confirm whether the credit note belongs in the buyer or issuer books before posting the proposed journal.');
+        }
         $voucherType = match (true) {
             $documentKind === 'supplier_credit_note' => 'general_voucher',
             $isTransfer => 'general_voucher',
@@ -309,7 +312,9 @@ class AccountingOcrPipeline
         $status = $payload['payment_status'] ?? 'unknown';
         $sourceKind = $payload['document_kind'] ?? 'unknown';
         if ($sourceKind === 'credit_note') {
-            return $direction === 'incoming' ? 'supplier_credit_note' : 'unknown';
+            return ($direction === 'incoming' || ($direction === 'unknown' && $this->hasSupplierCreditReversal($payload)))
+                ? 'supplier_credit_note'
+                : 'unknown';
         }
 
         $lines = is_array($payload['lines'] ?? null) ? $payload['lines'] : [];
@@ -341,6 +346,26 @@ class AccountingOcrPipeline
                 && ! in_array($sourceKind, ['invoice', 'bill', 'receipt', 'credit_note', 'debit_note'], true) => $kind,
             default => 'unknown',
         };
+    }
+
+    private function hasSupplierCreditReversal(array $payload): bool
+    {
+        if ($this->stringOrNull($payload['issuer_name'] ?? null) === null || $this->stringOrNull($payload['buyer_name'] ?? null) === null) {
+            return false;
+        }
+
+        $reducesPayable = false;
+        $reversesCost = false;
+        foreach ($payload['lines'] ?? [] as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $reducesPayable = $reducesPayable || (in_array($line['required_role'] ?? null, ['trade_payable', 'other_payable'], true) && (float) ($line['debit'] ?? 0) > 0);
+            $reversesCost = $reversesCost || (in_array($line['required_role'] ?? null, ['expense', 'inventory'], true) && (float) ($line['credit'] ?? 0) > 0);
+        }
+
+        return $reducesPayable && $reversesCost;
     }
 
     /** @return array<string, mixed> */

@@ -45,7 +45,7 @@ class GeminiAccountingOcrClientTest extends TestCase
             'image/png',
             [['code' => 'BANK-1', 'name' => 'Bank', 'type' => 'asset', 'subtype' => 'bank']],
             'ACME SDN BHD - free form company context',
-            ['msic' => [['code' => '01111', 'description' => 'Growing of maize'], ['code' => '62010', 'description' => 'Computer programming activities']], 'business_description' => 'Maize grower with software services', 'posting_date' => '2026-10-07'],
+            ['msic' => [['code' => '01111', 'description' => 'Growing of maize'], ['code' => '62010', 'description' => 'Computer programming activities']], 'business_description' => 'Maize grower with software services', 'posting_date' => '2026-10-07', 'proposal_perspective' => 'buyer'],
         );
 
         $this->assertSame(1, $result['transaction_count']);
@@ -71,6 +71,7 @@ class GeminiAccountingOcrClientTest extends TestCase
             && data_get($request->data(), 'generationConfig.responseSchema.properties.issuer_name.nullable') === true
             && data_get($request->data(), 'generationConfig.responseSchema.properties.buyer_name.nullable') === true
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Always return the exact printed issuer_name and buyer_name separately')
+            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'RETRY FOR PROVISIONAL BUYER-SIDE PROPOSAL')
             && data_get($request->data(), 'generationConfig.responseSchema.properties.payment_evidence_kind.type') === 'string'
             && data_get($request->data(), 'generationConfig.responseSchema.properties.item_assessments.items.properties.policy_assumptions.type') === 'array'
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Due dates, credit/COD terms and no receipt are not proof of unpaid status')

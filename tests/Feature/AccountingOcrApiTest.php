@@ -26,7 +26,7 @@ class AccountingOcrApiTest extends TestCase
         ];
     }
 
-    private function request(array $payload): TestResponse
+    private function request(array $payload, ?array $company = null): TestResponse
     {
         $this->app->bind(AccountingOcrClient::class, fn () => new class($payload) implements AccountingOcrClient
         {
@@ -41,8 +41,35 @@ class AccountingOcrApiTest extends TestCase
 
         return $this->post('/api/ocr/accounting', [
             'document' => $document, 'posting_date' => '2026-09-21',
+            'company' => $company,
             'accounts' => [['code' => 'BS/NA/PPE/RENO/10000', 'name' => 'RENOVATION', 'type' => 'asset', 'subtype' => 'other']],
         ], ['Accept' => 'application/json']);
+    }
+
+    public function test_printed_parties_determine_the_perspective_for_a_matching_company(): void
+    {
+        $payload = $this->payload();
+        $payload['issuer_name'] = 'Hap Seng Plantations (River Estates) Sdn Bhd';
+        $payload['buyer_name'] = 'YEE SHUN FOOD SUPPLIES SDN BHD';
+        $payload['document_direction'] = 'outgoing';
+        $payload['counterparty'] = 'YEE SHUN FOOD SUPPLIES SDN BHD';
+
+        $buyerResponse = $this->request($payload, ['name' => 'Yee Shun Food Supplies Sdn. Bhd.'])->assertOk()
+            ->assertJsonPath('data.extracted.counterparty', 'Hap Seng Plantations (River Estates) Sdn Bhd')
+            ->assertJsonPath('data.classification.document_kind', 'supplier_bill')
+            ->assertJsonPath('validation.is_postable', false);
+        $this->assertContains('document_perspective_conflict', array_column($buyerResponse->json('validation.errors'), 'code'));
+
+        $payload['document_direction'] = 'incoming';
+        $issuerResponse = $this->request($payload, ['name' => 'Hap Seng Plantations River Estates Sdn Bhd'])->assertOk()
+            ->assertJsonPath('data.extracted.counterparty', 'YEE SHUN FOOD SUPPLIES SDN BHD')
+            ->assertJsonPath('data.classification.document_kind', 'unknown');
+        $this->assertContains('document_perspective_conflict', array_column($issuerResponse->json('validation.errors'), 'code'));
+
+        $payload['document_direction'] = 'incoming';
+        $matchingResponse = $this->request($payload, ['name' => 'YEE SHUN FOOD SUPPLIES SDN BHD'])->assertOk()
+            ->assertJsonPath('data.extracted.counterparty', 'Hap Seng Plantations (River Estates) Sdn Bhd');
+        $this->assertNotContains('document_perspective_conflict', array_column($matchingResponse->json('validation.errors'), 'code'));
     }
 
     public function test_it_returns_only_the_compact_public_contract(): void
@@ -170,7 +197,7 @@ class AccountingOcrApiTest extends TestCase
         $payload['total'] = 20;
         $payload['lines'] = [];
 
-        $this->request($payload)->assertOk()
+        $response = $this->request($payload, ['name' => 'Template Demo Sdn Bhd'])->assertOk()
             ->assertJsonPath('data.extracted.source_document_kind', 'credit_note')
             ->assertJsonPath('data.extracted.issuer_name', 'Hap Seng Plantations (River Estates) Sdn Bhd')
             ->assertJsonPath('data.extracted.buyer_name', 'YEE SHUN FOOD SUPPLIES SDN BHD')
@@ -180,6 +207,8 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('data.classification.document_kind', 'unknown')
             ->assertJsonCount(0, 'data.journal_entry.lines')
             ->assertJsonPath('validation.is_postable', false);
+
+        $this->assertContains('document_party_mismatch', array_column($response->json('validation.warnings'), 'code'));
     }
 
     public function test_buyer_side_credit_note_proposal_routes_but_cannot_post_without_a_confirmed_perspective(): void
@@ -206,6 +235,56 @@ class AccountingOcrApiTest extends TestCase
             ->assertJsonPath('data.classification.document_kind', 'supplier_credit_note')
             ->assertJsonPath('validation.is_postable', false);
 
+        $this->assertContains('document_perspective_unclear', array_column($response->json('validation.errors'), 'code'));
+    }
+
+    public function test_it_retries_a_readable_credit_note_without_lines_for_a_provisional_buyer_side_proposal(): void
+    {
+        $first = $this->payload();
+        $first['document_kind'] = 'credit_note';
+        $first['routing_document_kind'] = 'unknown';
+        $first['document_direction'] = 'unknown';
+        $first['reference_number'] = '999900397';
+        $first['issuer_name'] = 'Hap Seng Plantations (River Estates) Sdn Bhd';
+        $first['buyer_name'] = 'YEE SHUN FOOD SUPPLIES SDN BHD';
+        $first['total'] = 20;
+        $first['lines'] = [];
+        $second = $first;
+        $second['lines'] = [
+            array_replace($this->payload()['lines'][1], ['debit' => 20, 'credit' => 0]),
+            array_replace($this->payload()['lines'][0], [
+                'selected_account_code' => null, 'debit' => 0, 'credit' => 20,
+                'required_role' => 'expense', 'required_account_type' => 'expense',
+                'required_prefix' => 'PL/OE/OEX/GNEX',
+            ]),
+        ];
+
+        $client = new class($first, $second) implements AccountingOcrClient
+        {
+            public int $calls = 0;
+
+            public function __construct(private readonly array $first, private readonly array $second) {}
+
+            public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null, array $context = []): array
+            {
+                $this->calls++;
+
+                return ($context['proposal_perspective'] ?? null) === 'buyer' ? $this->second : $this->first;
+            }
+        };
+        $this->app->instance(AccountingOcrClient::class, $client);
+
+        $response = $this->post('/api/ocr/accounting', [
+            'document' => UploadedFile::fake()->createWithContent('credit-note.pdf', "%PDF-1.4\nTest credit note"),
+            'posting_date' => '2026-03-31',
+            'accounts' => [['code' => 'BS/NA/PPE/RENO/10000', 'name' => 'RENOVATION', 'type' => 'asset', 'subtype' => 'other']],
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.classification.document_kind', 'supplier_credit_note')
+            ->assertJsonCount(2, 'data.journal_entry.lines')
+            ->assertJsonPath('validation.is_postable', false);
+        $this->assertSame(2, $client->calls);
         $this->assertContains('document_perspective_unclear', array_column($response->json('validation.errors'), 'code'));
     }
 

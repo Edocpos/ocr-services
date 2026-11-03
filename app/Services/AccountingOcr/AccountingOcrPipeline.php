@@ -8,6 +8,7 @@ use App\Services\IcOcr\OcrUsageEstimator;
 use App\Support\OcrDocumentMime;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AccountingOcrPipeline
 {
@@ -44,6 +45,8 @@ class AccountingOcrPipeline
         ]);
 
         $payload = $this->client->extract($content, $mime, $accounts, $companyContext, $context);
+        $payload = $this->resolveDocumentPerspective($payload, $companyContext);
+        $payload = $this->retryBuyerSideCreditNoteProposal($payload, $content, $mime, $accounts, $companyContext, $context, $requestId);
         $payload = (new PaymentEvidenceAssessment)->normalize($payload);
         $transactionCount = max(0, (int) ($payload['transaction_count'] ?? 0));
         if ($transactionCount > 1) {
@@ -74,6 +77,12 @@ class AccountingOcrPipeline
         if (! $hasJournalLines) {
             $payload['lines'] = [];
             $errors[] = $this->issue('journal_entry', 'journal_proposal_missing', 'The document was read, but a reliable journal entry could not be proposed. Arkcloudant must review the document and accounting treatment.');
+        }
+        if (($payload['company_identity_mismatch'] ?? false) === true) {
+            $warnings[] = $this->issue('document_direction', 'document_party_mismatch', 'The bookkeeping company matches neither printed party; confirm the document perspective before posting.');
+        }
+        if (($payload['document_perspective_conflict'] ?? false) === true && $hasJournalLines) {
+            $errors[] = $this->issue('document_direction', 'document_perspective_conflict', 'The proposed journal direction conflicts with the bookkeeping company named on the document. Review the treatment before posting.');
         }
         if ($transactionCount === 0) {
             $warnings[] = $this->issue('document', 'transaction_count_uncertain', 'The document appears to contain a transaction, but the transaction count needs review.');
@@ -208,6 +217,9 @@ class AccountingOcrPipeline
         $documentKind = $this->routingDocumentKind($payload);
         if (($payload['document_kind'] ?? null) === 'credit_note' && ($payload['document_direction'] ?? 'unknown') === 'unknown' && $hasJournalLines) {
             $errors[] = $this->issue('document_direction', 'document_perspective_unclear', 'Confirm whether the credit note belongs in the buyer or issuer books before posting the proposed journal.');
+        }
+        if (($payload['document_kind'] ?? null) === 'credit_note' && ($payload['document_direction'] ?? null) === 'outgoing' && $this->hasSupplierCreditReversal($payload)) {
+            $errors[] = $this->issue('journal_entry', 'document_perspective_conflict', 'The buyer-side reversal lines do not fit an issuer-side credit note. Review the journal before posting.');
         }
         $voucherType = match (true) {
             $documentKind === 'supplier_credit_note' => 'general_voucher',
@@ -366,6 +378,76 @@ class AccountingOcrPipeline
         }
 
         return $reducesPayable && $reversesCost;
+    }
+
+    private function resolveDocumentPerspective(array $payload, ?string $companyContext): array
+    {
+        $company = is_string($companyContext) ? json_decode($companyContext, true) : null;
+        $companyName = is_array($company) ? $this->stringOrNull($company['name'] ?? null) : null;
+        $issuerName = $this->stringOrNull($payload['issuer_name'] ?? null);
+        $buyerName = $this->stringOrNull($payload['buyer_name'] ?? null);
+        if ($companyName === null || $issuerName === null || $buyerName === null) {
+            return $payload;
+        }
+
+        $normalize = fn (string $name): string => trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtoupper($name)) ?? '');
+        $companyIdentity = $normalize($companyName);
+        $isIssuer = $companyIdentity === $normalize($issuerName);
+        $isBuyer = $companyIdentity === $normalize($buyerName);
+        if ($isBuyer !== $isIssuer) {
+            $resolvedDirection = $isBuyer ? 'incoming' : 'outgoing';
+            $payload['document_perspective_conflict'] = in_array($payload['document_direction'] ?? null, ['incoming', 'outgoing'], true)
+                && $payload['document_direction'] !== $resolvedDirection;
+            $payload['document_direction'] = $resolvedDirection;
+            $payload['counterparty'] = $isBuyer ? $issuerName : $buyerName;
+            $payload['company_identity_mismatch'] = false;
+
+            return $payload;
+        }
+
+        $payload['document_direction'] = 'unknown';
+        $payload['counterparty'] = null;
+        $payload['company_identity_mismatch'] = true;
+
+        return $payload;
+    }
+
+    /** @param list<array<string, mixed>> $accounts */
+    private function retryBuyerSideCreditNoteProposal(array $payload, string $content, string $mime, array $accounts, ?string $companyContext, array $context, string $requestId): array
+    {
+        if (($payload['document_kind'] ?? null) !== 'credit_note'
+            || ! in_array($payload['document_direction'] ?? 'unknown', ['unknown', 'incoming'], true)
+            || ! empty($payload['lines'])
+            || $this->stringOrNull($payload['issuer_name'] ?? null) === null
+            || $this->stringOrNull($payload['buyer_name'] ?? null) === null
+            || $this->stringOrNull($payload['reference_number'] ?? null) === null
+            || ! is_numeric($payload['total'] ?? null) || (float) $payload['total'] <= 0) {
+            return $payload;
+        }
+
+        try {
+            $retry = $this->resolveDocumentPerspective($this->client->extract($content, $mime, $accounts, $companyContext, $context + ['proposal_perspective' => 'buyer']), $companyContext);
+        } catch (Throwable $exception) {
+            Log::warning('accounting_ocr_credit_note_proposal_retry_failed', ['request_id' => $requestId, 'error' => $exception->getMessage()]);
+
+            return $payload;
+        }
+
+        foreach (['prompt_tokens', 'completion_tokens', 'total_tokens'] as $token) {
+            $payload['usage'][$token] = (int) ($payload['usage'][$token] ?? 0) + (int) ($retry['usage'][$token] ?? 0);
+        }
+        if (($retry['document_kind'] ?? null) !== 'credit_note'
+            || ($retry['document_direction'] ?? 'unknown') !== ($payload['document_direction'] ?? 'unknown')
+            || ($retry['reference_number'] ?? null) !== $payload['reference_number']
+            || ! is_numeric($retry['total'] ?? null)
+            || abs((float) $retry['total'] - (float) $payload['total']) > 0.01
+            || ! is_array($retry['lines'] ?? null) || $retry['lines'] === []) {
+            return $payload;
+        }
+
+        return array_replace($payload, array_intersect_key($retry, array_flip([
+            'lines', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'item_assessments', 'overall_confidence',
+        ])));
     }
 
     /** @return array<string, mixed> */

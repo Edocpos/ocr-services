@@ -308,6 +308,10 @@ Tests: `tests/Feature/StatutoryReceiptOcrApiTest.php`.
 
 ---
 
+## Structured accounting recommendation
+
+**POST** `/api/accounting/recommend` accepts confirmed Customer and Supplier documents as JSON and returns a journal proposal with `data`, `validation`, and `meta`. It supports invoices, bills, credit notes, debit notes, receipts, payments, and refunds. See [the structured accounting contract](docs/accounting-recommend.md) for fields and validation. This endpoint does not upload a document, create accounts, or post the GL.
+
 ## Accounting classification OCR
 
 **POST** `/api/ocr/accounting`

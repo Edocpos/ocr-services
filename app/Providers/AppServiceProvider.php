@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Contracts\Ocr\AccountingOcrClient;
 use App\Contracts\Ocr\OcrClient;
+use App\Contracts\Ocr\StructuredAccountingClient;
 use App\Services\Ocr\GeminiAccountingOcrClient;
 use App\Services\Ocr\GeminiIcOcrClient;
+use App\Services\Ocr\GeminiStructuredAccountingClient;
 use App\Services\Ocr\GoogleVisionOcrClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -20,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(AccountingOcrClient::class, GeminiAccountingOcrClient::class);
+        $this->app->bind(StructuredAccountingClient::class, GeminiStructuredAccountingClient::class);
 
         $this->app->bind(OcrClient::class, function (): OcrClient {
             return match ((string) config('ocr.provider', 'google_vision')) {

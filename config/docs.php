@@ -208,6 +208,46 @@ return [
                 ],
             ],
             [
+                'id' => 'accounting-recommend',
+                'name' => 'Structured accounting recommendation',
+                'description' => 'Recommend a balanced journal for a confirmed Customer or Supplier commercial document supplied as JSON. Supports invoices, bills, credit notes, debit notes, receipts, payments and refunds. No file upload, account creation or GL posting.',
+                'endpoints' => [[
+                    'id' => 'post-accounting-recommend',
+                    'title' => 'Recommend accounting for a confirmed document',
+                    'method' => 'POST',
+                    'path' => '/api/accounting/recommend',
+                    'tag' => 'Accounting',
+                    'content_type' => 'application/json',
+                    'rate_limit' => ':accounting_rate_limit requests/minute/IP',
+                    'request_fields' => [
+                        ['field' => 'document_kind', 'type' => 'string', 'required' => true, 'notes' => 'One of ten Customer or Supplier commercial kinds.'],
+                        ['field' => 'workflow_context', 'type' => 'string', 'required' => true, 'notes' => 'Must equal document_kind.'],
+                        ['field' => 'currency', 'type' => 'string', 'required' => true, 'notes' => 'MYR.'],
+                        ['field' => 'counterparty', 'type' => 'object', 'required' => true, 'notes' => 'Role customer/supplier and display name; optional external_ref and tax_id.'],
+                        ['field' => 'document', 'type' => 'object', 'required' => true, 'notes' => 'Commercial date, authoritative total or amount, and kind-specific lines or allocations. See docs/accounting-recommend.md.'],
+                        ['field' => 'accounts', 'type' => 'array', 'required' => true, 'notes' => '1–500 candidate accounts; code, name, type, subtype and optional aliases.'],
+                        ['field' => 'company, msic_code, additional_msic_codes, hints', 'type' => 'optional context', 'required' => false, 'notes' => 'Company business context and soft account-code hints.'],
+                    ],
+                    'curl_example' => "curl --location ':app_url/api/accounting/recommend' --header 'Content-Type: application/json' --data '{\"document_kind\":\"customer_invoice\",\"workflow_context\":\"customer_invoice\",\"currency\":\"MYR\",\"counterparty\":{\"role\":\"customer\",\"name\":\"Acme Trading\"},\"document\":{\"document_date\":\"2026-11-04\",\"subtotal\":\"100.00\",\"tax\":\"0.00\",\"total\":\"100.00\",\"lines\":[{\"line_no\":1,\"description\":\"Service\",\"quantity\":\"1\",\"unit_price\":\"100.00\",\"amount\":\"100.00\"}]},\"accounts\":[{\"code\":\"BS/CA/TRV/TRDB/10000\",\"name\":\"Trade Debtors\",\"type\":\"asset\",\"subtype\":\"trade_receivable\"},{\"code\":\"PL/TI/TIN/SVIC/10000\",\"name\":\"Service Income\",\"type\":\"revenue\",\"subtype\":\"other\"}]}'",
+                    'responses' => [[
+                        'label' => '200 OK — Journal proposal', 'status' => 200,
+                        'json' => [
+                            'data' => ['extracted' => ['transaction_date' => '2026-11-04', 'counterparty' => 'Acme Trading', 'currency' => 'MYR', 'total' => 100.0, 'source_document_kind' => 'customer_invoice'], 'classification' => ['document_kind' => 'customer_invoice', 'voucher_type' => 'journal_voucher'], 'journal_entry' => ['lines' => [
+                                ['account_code' => 'BS/CA/TRV/TRDB/10000', 'account_name' => 'Trade Debtors', 'debit' => 100.0, 'credit' => 0.0, 'match_status' => 'matched', 'confidence' => 0.95, 'reason' => 'Recognise customer receivable.', 'evidence' => 'Invoice total 100.00', 'description' => 'Customer invoice', 'recommendation' => null],
+                                ['account_code' => 'PL/TI/TIN/SVIC/10000', 'account_name' => 'Service Income', 'debit' => 0.0, 'credit' => 100.0, 'match_status' => 'matched', 'confidence' => 0.95, 'reason' => 'Recognise service revenue.', 'evidence' => 'Service 100.00', 'description' => 'Service income', 'recommendation' => null],
+                            ], 'total_debit' => 100.0, 'total_credit' => 100.0, 'is_balanced' => true]],
+                            'validation' => ['status' => 'ok', 'errors' => [], 'warnings' => [], 'is_postable' => true, 'requires_manual_review' => false],
+                            'meta' => ['provider' => 'gemini', 'document_type' => 'accounting_structured', 'stateless' => true, 'input_mode' => 'structured'],
+                        ],
+                    ]],
+                    'error_codes' => [
+                        ['code' => 'validation_error', 'http' => 422, 'note' => 'Invalid JSON fields or unsupported document kind.'],
+                        ['code' => 'accounting_recommendation_unavailable', 'http' => 503, 'note' => 'Provider failure or invalid journal proposal.'],
+                        ['code' => 'ocr_upstream_timeout', 'http' => 504, 'note' => 'Gemini timed out.'],
+                    ],
+                ]],
+            ],
+            [
                 'id' => 'accounting-ocr',
                 'name' => 'Accounting classification OCR',
                 'description' => 'Classify one accounting document, match the submitted chart of accounts, and return a journal proposal with PDF-hierarchy account guidance, MSIC business context and prepayment review. Required accounting roles use canonical PDF prefixes; matched legacy codes are preserved. Missing roles return ACCOUNT_NOT_AVAILABLE plus advisory account recommendations. Arkcloudant performs final validation and posting.',

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountingAccountLibraryController;
 use App\Http\Controllers\Api\AccountingOcrController;
+use App\Http\Controllers\Api\AccountingRecommendController;
 use App\Http\Controllers\Api\CompanyOcrController;
 use App\Http\Controllers\Api\IcOcrController;
 use App\Http\Controllers\Api\StatutoryReceiptOcrController;
@@ -19,6 +20,7 @@ Route::middleware('throttle:ocr-company')->group(function (): void {
 Route::middleware('throttle:ocr-accounting')->group(function (): void {
     Route::get('/ocr/accounting/accounts', AccountingAccountLibraryController::class);
     Route::post('/ocr/accounting', AccountingOcrController::class);
+    Route::post('/accounting/recommend', AccountingRecommendController::class);
 });
 
 Route::middleware('throttle:ocr-statutory')->group(function (): void {

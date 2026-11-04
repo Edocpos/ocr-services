@@ -242,7 +242,9 @@ return [
                     ]],
                     'error_codes' => [
                         ['code' => 'validation_error', 'http' => 422, 'note' => 'Invalid JSON fields or unsupported document kind.'],
-                        ['code' => 'accounting_recommendation_unavailable', 'http' => 503, 'note' => 'Provider failure or invalid journal proposal.'],
+                        ['code' => 'accounting_proposal_invalid', 'http' => 502, 'note' => 'Gemini journal proposal failed server-side validation.'],
+                        ['code' => 'ocr_provider_request_rejected', 'http' => 502, 'note' => 'Gemini rejected the structured request.'],
+                        ['code' => 'ocr_provider_configuration_error', 'http' => 503, 'note' => 'Gemini credentials are missing or invalid.'],
                         ['code' => 'ocr_upstream_timeout', 'http' => 504, 'note' => 'Gemini timed out.'],
                     ],
                 ]],

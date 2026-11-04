@@ -18,4 +18,4 @@ The service rejects a provider proposal if it uses a code outside the submitted 
 
 ## Errors
 
-Invalid requests return 422, rate limits return 429, provider timeouts return 504, and other provider or invalid-proposal failures return 503.
+Invalid requests return 422 and endpoint rate limits return 429. Provider timeouts return 504. Provider rejection, an unavailable model, malformed provider JSON, or a journal proposal that fails server-side checks returns 502 with a specific `error_code` and `request_id`. Provider credentials or upstream rate limits return 503.

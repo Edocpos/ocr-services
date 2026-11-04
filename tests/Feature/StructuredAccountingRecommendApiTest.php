@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Contracts\Ocr\StructuredAccountingClient;
 use App\Http\Requests\RecommendAccountingRequest;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class StructuredAccountingRecommendApiTest extends TestCase
@@ -84,7 +85,7 @@ class StructuredAccountingRecommendApiTest extends TestCase
     {
         $this->bindProposal([['account_code' => 'MADE-UP', 'required_account_type' => 'asset', 'required_role' => 'bank', 'debit' => 100, 'credit' => 0]]);
         $this->postJson('/api/accounting/recommend', $this->requestFor('customer_invoice'))
-            ->assertStatus(503)->assertJsonPath('error_code', 'accounting_recommendation_unavailable');
+            ->assertStatus(502)->assertJsonPath('error_code', 'accounting_proposal_invalid');
     }
 
     public function test_it_rejects_provider_amounts_that_do_not_reconcile(): void
@@ -93,7 +94,8 @@ class StructuredAccountingRecommendApiTest extends TestCase
             ['account_code' => 'BS/CA/CNB/BANK/10000', 'required_account_type' => 'asset', 'required_role' => 'bank', 'debit' => 90, 'credit' => 0],
             ['account_code' => 'PL/TI/TIN/SVIC/10000', 'required_account_type' => 'revenue', 'required_role' => 'revenue', 'debit' => 0, 'credit' => 90],
         ]);
-        $this->postJson('/api/accounting/recommend', $this->requestFor('customer_invoice'))->assertStatus(503);
+        $this->postJson('/api/accounting/recommend', $this->requestFor('customer_invoice'))->assertStatus(502)
+            ->assertJsonPath('error_code', 'accounting_proposal_invalid');
     }
 
     public function test_unmatched_account_returns_recommendation_and_blocks_postability(): void
@@ -128,6 +130,30 @@ class StructuredAccountingRecommendApiTest extends TestCase
         ]);
         $request = $this->requestFor('customer_invoice');
         $request['accounts'][] = ['code' => 'BS/CA/TRV/TRDB/10000', 'name' => 'Different Customer', 'type' => 'asset', 'subtype' => 'trade_receivable'];
-        $this->postJson('/api/accounting/recommend', $request)->assertStatus(503);
+        $this->postJson('/api/accounting/recommend', $request)->assertStatus(502)
+            ->assertJsonPath('error_code', 'accounting_proposal_invalid');
+    }
+
+    public function test_it_distinguishes_provider_rejection_from_an_invalid_proposal(): void
+    {
+        $this->app->bind(StructuredAccountingClient::class, fn () => new class implements StructuredAccountingClient
+        {
+            public function recommend(array $request): array
+            {
+                throw new \RuntimeException('ocr_provider_request_rejected');
+            }
+        });
+        $this->postJson('/api/accounting/recommend', $this->requestFor('customer_invoice'))
+            ->assertStatus(502)->assertJsonPath('error_code', 'ocr_provider_request_rejected')
+            ->assertJsonStructure(['request_id']);
+    }
+
+    public function test_gemini_http_400_is_reported_as_provider_rejection(): void
+    {
+        config()->set('ocr.gemini_api_key', 'test-key');
+        Http::fake(['*' => Http::response(['error' => ['message' => 'Bad request']], 400)]);
+        $this->postJson('/api/accounting/recommend', $this->requestFor('customer_invoice'))
+            ->assertStatus(502)->assertJsonPath('error_code', 'ocr_provider_request_rejected');
+        Http::assertSent(fn ($request) => isset($request['generationConfig']['responseSchema']));
     }
 }

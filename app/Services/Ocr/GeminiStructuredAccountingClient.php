@@ -42,15 +42,19 @@ PROMPT;
                 ->retry((int) config('ocr.gemini_retry_times', 1), (int) config('ocr.gemini_retry_sleep_ms', 500))
                 ->post(sprintf('https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent', $model).'?key='.$key, [
                     'contents' => [['parts' => [['text' => $prompt]]]],
-                    'generationConfig' => ['temperature' => 0, 'responseMimeType' => 'application/json'],
+                    'generationConfig' => [
+                        'temperature' => 0,
+                        'responseMimeType' => 'application/json',
+                        'responseSchema' => $this->responseSchema($registry),
+                    ],
                 ]);
         } catch (ConnectionException $exception) {
             throw new RuntimeException('ocr_upstream_timeout', 0, $exception);
         } catch (RequestException $exception) {
-            throw new RuntimeException('ocr_upstream_error: Gemini request failed.', 0, $exception);
+            $this->throwProviderError($exception->response?->status() ?? 0, $exception);
         }
         if (! $response->successful()) {
-            throw new RuntimeException('ocr_upstream_error: Gemini returned HTTP '.$response->status().'.');
+            $this->throwProviderError($response->status());
         }
         $text = data_get($response->json(), 'candidates.0.content.parts.0.text');
         $result = is_string($text) ? json_decode($text, true) : null;
@@ -59,5 +63,63 @@ PROMPT;
         }
 
         return $result;
+    }
+
+    private function throwProviderError(int $status, ?\Throwable $previous = null): never
+    {
+        $code = match (true) {
+            in_array($status, [408, 504], true) => 'ocr_upstream_timeout',
+            $status === 404 => 'ocr_provider_model_unavailable',
+            in_array($status, [401, 403], true) => 'ocr_provider_auth_failed',
+            $status === 429 => 'ocr_provider_rate_limited',
+            $status === 400 => 'ocr_provider_request_rejected',
+            default => 'ocr_upstream_error',
+        };
+
+        throw new RuntimeException($code, 0, $previous);
+    }
+
+    private function responseSchema(AccountCodeRegistry $registry): array
+    {
+        $nullableString = ['type' => 'string', 'nullable' => true];
+        $recommendation = [
+            'type' => 'object', 'nullable' => true,
+            'properties' => [
+                'suggested_name' => ['type' => 'string'],
+                'parent_code' => ['type' => 'string'],
+                'parent_name' => $nullableString,
+                'parent_definition_key' => $nullableString,
+                'account_type' => ['type' => 'string', 'enum' => ['asset', 'liability', 'equity', 'revenue', 'expense']],
+                'account_subtype' => ['type' => 'string'],
+                'reason' => $nullableString,
+            ],
+            'required' => ['suggested_name', 'parent_code', 'account_type', 'account_subtype'],
+        ];
+
+        return [
+            'type' => 'object',
+            'properties' => [
+                'lines' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'account_code' => $nullableString,
+                            'required_account_type' => ['type' => 'string', 'enum' => ['asset', 'liability', 'equity', 'revenue', 'expense']],
+                            'required_role' => ['type' => 'string', 'enum' => $registry->roles()],
+                            'debit' => ['type' => 'number'],
+                            'credit' => ['type' => 'number'],
+                            'confidence' => ['type' => 'number'],
+                            'reason' => ['type' => 'string'],
+                            'evidence' => ['type' => 'string'],
+                            'description' => ['type' => 'string'],
+                            'recommendation' => $recommendation,
+                        ],
+                        'required' => ['account_code', 'required_account_type', 'required_role', 'debit', 'credit', 'confidence', 'reason', 'evidence', 'description', 'recommendation'],
+                    ],
+                ],
+            ],
+            'required' => ['lines'],
+        ];
     }
 }

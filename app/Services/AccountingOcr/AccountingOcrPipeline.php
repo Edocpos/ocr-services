@@ -418,9 +418,17 @@ class AccountingOcrPipeline
             return true;
         }
 
-        // Bills may append a short branch code to the registered buyer name, e.g. (SDK).
-        return preg_match('/^(.+?)\s*\([A-Z]{2,5}\)$/u', trim($printedName), $match) === 1
-            && $companyIdentity === $normalize($match[1]);
+        // A short branch code such as (SDK) may appear on either name.
+        $branchBase = static function (string $name): ?string {
+            return preg_match('/^(.+?)\s*\([A-Z]{2,5}\)$/u', trim($name), $match) === 1
+                ? $match[1]
+                : null;
+        };
+        $printedBase = $branchBase($printedName);
+        $companyBase = $branchBase($companyName);
+
+        return ($printedBase !== null && $companyIdentity === $normalize($printedBase))
+            || ($companyBase !== null && $normalize($companyBase) === $normalize($printedName));
     }
 
     /** @param list<array<string, mixed>> $accounts */

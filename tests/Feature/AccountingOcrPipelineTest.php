@@ -845,6 +845,57 @@ class AccountingOcrPipelineTest extends TestCase
             ->assertJsonPath('validation.final_validation_required_by', 'Arkcloudant');
     }
 
+    public function test_readable_debit_note_retries_a_buyer_side_proposal_without_confirming_a_mismatched_company(): void
+    {
+        $expense = $this->line('PL/OE/OEX/OPEX/10001', 144.57, 0, 'Provisional transport cost', 'TRANSPORTING EFB - ST MYR 144.57');
+        $expense = array_replace($expense, ['required_role' => 'expense', 'required_account_type' => 'expense', 'required_prefix' => 'PL/TE/TEX/OPEX', 'requires_control_account' => false, 'required_control_role' => null, 'account_error' => null]);
+        $payable = $this->line(null, 0, 144.57, 'Provisional amount owed to the printed issuer', 'Sales Debit Note DN2605/004; 30 DAYS');
+        $payable = array_replace($payable, ['required_role' => 'other_payable', 'required_account_type' => 'liability', 'required_prefix' => 'BS/CL/OPY/OPCR', 'requires_control_account' => false, 'required_control_role' => null, 'account_error' => 'ACCOUNT_NOT_AVAILABLE', 'suggested_account_name' => 'MAN FOOK HING']);
+        $first = $this->payload([], [
+            'document_kind' => 'debit_note', 'routing_document_kind' => 'unknown', 'document_direction' => 'unknown',
+            'issuer_name' => 'MAN FOOK HING', 'buyer_name' => 'GENTING PLANTATIONS BERHAD (GLKE)',
+            'reference_number' => 'DN2605/004', 'total' => 144.57, 'subtotal' => 144.57,
+            'transaction_date' => '2026-05-19', 'payment_status' => 'unknown', 'payment_evidence_kind' => 'payment_terms',
+            'payment_status_evidence' => '30 DAYS is a payment term.', 'economic_event' => '', 'trade_nature' => 'unknown',
+        ]);
+        $retry = array_replace($first, [
+            'lines' => [$expense, $payable], 'economic_event' => 'Transport charge', 'trade_nature' => 'non_trade',
+            'treatment_summary' => 'Provisional buyer-side transport cost; confirm document ownership and use.',
+        ]);
+        $client = new class($first, $retry) implements AccountingOcrClient
+        {
+            public array $contexts = [];
+
+            public function __construct(private readonly array $first, private readonly array $retry) {}
+
+            public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null, array $context = []): array
+            {
+                $this->contexts[] = $context;
+
+                return count($this->contexts) === 1 ? $this->first : $this->retry;
+            }
+        };
+        $this->app->bind(AccountingOcrClient::class, fn () => $client);
+
+        $response = $this->processAccounting('/api/ocr/accounting', [
+            'document' => $this->fakeDocument(),
+            'company' => ['name' => 'SHINY ENTERPRISE (SDK)'],
+            'accounts' => json_encode($this->accounts()),
+        ])->assertOk()
+            ->assertJsonPath('data.extracted.source_document_kind', 'debit_note')
+            ->assertJsonPath('data.extracted.document_direction', 'unknown')
+            ->assertJsonPath('data.extracted.counterparty', null)
+            ->assertJsonPath('data.journal_entry.total_debit', 144.57)
+            ->assertJsonPath('data.journal_entry.total_credit', 144.57)
+            ->assertJsonPath('data.journal_entry.lines.1.error_code', 'ACCOUNT_NOT_AVAILABLE')
+            ->assertJsonPath('validation.is_postable', false);
+
+        $this->assertSame('debit_note', $client->contexts[1]['proposal_document_kind']);
+        $this->assertSame('buyer', $client->contexts[1]['proposal_perspective']);
+        $this->assertContains('document_party_mismatch', array_column($response->json('validation.warnings'), 'code'));
+        $this->assertNotContains('journal_proposal_missing', array_column($response->json('validation.errors'), 'code'));
+    }
+
     public function test_sample_insurance_period_requires_review_without_assuming_payment(): void
     {
         $accounts = $this->accounts();

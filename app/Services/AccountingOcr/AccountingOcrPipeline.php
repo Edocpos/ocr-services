@@ -46,7 +46,7 @@ class AccountingOcrPipeline
 
         $payload = $this->client->extract($content, $mime, $accounts, $companyContext, $context);
         $payload = $this->resolveDocumentPerspective($payload, $companyContext);
-        $payload = $this->retryBuyerSideCreditNoteProposal($payload, $content, $mime, $accounts, $companyContext, $context, $requestId);
+        $payload = $this->retryBuyerSideAdjustmentProposal($payload, $content, $mime, $accounts, $companyContext, $context, $requestId);
         $payload = (new PaymentEvidenceAssessment)->normalize($payload);
         $transactionCount = max(0, (int) ($payload['transaction_count'] ?? 0));
         if ($transactionCount > 1) {
@@ -432,9 +432,10 @@ class AccountingOcrPipeline
     }
 
     /** @param list<array<string, mixed>> $accounts */
-    private function retryBuyerSideCreditNoteProposal(array $payload, string $content, string $mime, array $accounts, ?string $companyContext, array $context, string $requestId): array
+    private function retryBuyerSideAdjustmentProposal(array $payload, string $content, string $mime, array $accounts, ?string $companyContext, array $context, string $requestId): array
     {
-        if (($payload['document_kind'] ?? null) !== 'credit_note'
+        $documentKind = $payload['document_kind'] ?? null;
+        if (! in_array($documentKind, ['credit_note', 'debit_note'], true)
             || ! in_array($payload['document_direction'] ?? 'unknown', ['unknown', 'incoming'], true)
             || ! empty($payload['lines'])
             || $this->stringOrNull($payload['issuer_name'] ?? null) === null
@@ -445,9 +446,12 @@ class AccountingOcrPipeline
         }
 
         try {
-            $retry = $this->resolveDocumentPerspective($this->client->extract($content, $mime, $accounts, $companyContext, $context + ['proposal_perspective' => 'buyer']), $companyContext);
+            $retry = $this->resolveDocumentPerspective($this->client->extract($content, $mime, $accounts, $companyContext, $context + [
+                'proposal_perspective' => 'buyer',
+                'proposal_document_kind' => $documentKind,
+            ]), $companyContext);
         } catch (Throwable $exception) {
-            Log::warning('accounting_ocr_credit_note_proposal_retry_failed', ['request_id' => $requestId, 'error' => $exception->getMessage()]);
+            Log::warning('accounting_ocr_adjustment_proposal_retry_failed', ['request_id' => $requestId, 'error' => $exception->getMessage()]);
 
             return $payload;
         }
@@ -455,18 +459,39 @@ class AccountingOcrPipeline
         foreach (['prompt_tokens', 'completion_tokens', 'total_tokens'] as $token) {
             $payload['usage'][$token] = (int) ($payload['usage'][$token] ?? 0) + (int) ($retry['usage'][$token] ?? 0);
         }
-        if (($retry['document_kind'] ?? null) !== 'credit_note'
+        if (($retry['document_kind'] ?? null) !== $documentKind
             || ($retry['document_direction'] ?? 'unknown') !== ($payload['document_direction'] ?? 'unknown')
             || ($retry['reference_number'] ?? null) !== $payload['reference_number']
+            || ($retry['issuer_name'] ?? null) !== $payload['issuer_name']
+            || ($retry['buyer_name'] ?? null) !== $payload['buyer_name']
             || ! is_numeric($retry['total'] ?? null)
             || abs((float) $retry['total'] - (float) $payload['total']) > 0.01
             || ! is_array($retry['lines'] ?? null) || $retry['lines'] === []) {
+            return $payload;
+        }
+        if ($documentKind === 'debit_note' && ! $this->hasSupplierDebitIncrease($retry)) {
             return $payload;
         }
 
         return array_replace($payload, array_intersect_key($retry, array_flip([
             'lines', 'economic_event', 'trade_nature', 'treatment_summary', 'business_context_reason', 'item_assessments', 'overall_confidence',
         ])));
+    }
+
+    private function hasSupplierDebitIncrease(array $payload): bool
+    {
+        $increasesPayable = false;
+        $recordsCost = false;
+        foreach ($payload['lines'] as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $increasesPayable = $increasesPayable || (in_array($line['required_role'] ?? null, ['trade_payable', 'other_payable'], true) && (float) ($line['credit'] ?? 0) > 0);
+            $recordsCost = $recordsCost || (in_array($line['required_role'] ?? null, ['expense', 'inventory', 'ppe'], true) && (float) ($line['debit'] ?? 0) > 0);
+        }
+
+        return $increasesPayable && $recordsCost;
     }
 
     /** @return array<string, mixed> */

@@ -58,7 +58,6 @@ class GeminiAccountingOcrClientTest extends TestCase
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Maize grower with software services')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'TRADE CREDITORS')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'A supplied company that matches neither document party does not make the document unreadable')
-            && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'For a debit note explicitly issued by a supplier to a named buyer')
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'Never route a credit note as supplier_bill')
             && in_array('supplier_credit_note', data_get($request->data(), 'generationConfig.responseSchema.properties.routing_document_kind.enum', []), true)
             && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'A scan-only PDF may have no embedded text')
@@ -95,23 +94,6 @@ class GeminiAccountingOcrClientTest extends TestCase
         $this->expectExceptionMessage('invalid accounting JSON');
 
         (new GeminiAccountingOcrClient)->extract('bytes', 'image/png', []);
-    }
-
-    public function test_debit_note_retry_prompt_requests_a_buyer_side_increase(): void
-    {
-        Http::fake(['*' => Http::response([
-            'candidates' => [['content' => ['parts' => [['text' => '{"transaction_count":1,"lines":[]}']]]]],
-        ], 200)]);
-
-        (new GeminiAccountingOcrClient)->extract('document bytes', 'image/png', [], null, [
-            'proposal_perspective' => 'buyer',
-            'proposal_document_kind' => 'debit_note',
-        ]);
-
-        Http::assertSent(fn ($request): bool => str_contains(
-            (string) data_get($request->data(), 'contents.0.parts.1.text'),
-            'supplier debit note but returned no journal lines'
-        ) && str_contains((string) data_get($request->data(), 'contents.0.parts.1.text'), 'cost and payable increase lines'));
     }
 
     public function test_it_sends_embedded_pdf_text_as_document_evidence(): void

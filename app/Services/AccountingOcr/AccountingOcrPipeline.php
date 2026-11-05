@@ -390,10 +390,8 @@ class AccountingOcrPipeline
             return $payload;
         }
 
-        $normalize = fn (string $name): string => trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtoupper($name)) ?? '');
-        $companyIdentity = $normalize($companyName);
-        $isIssuer = $companyIdentity === $normalize($issuerName);
-        $isBuyer = $companyIdentity === $normalize($buyerName);
+        $isIssuer = $this->matchesCompanyName($companyName, $issuerName);
+        $isBuyer = $this->matchesCompanyName($companyName, $buyerName);
         if ($isBuyer !== $isIssuer) {
             $resolvedDirection = $isBuyer ? 'incoming' : 'outgoing';
             $payload['document_perspective_conflict'] = in_array($payload['document_direction'] ?? null, ['incoming', 'outgoing'], true)
@@ -410,6 +408,19 @@ class AccountingOcrPipeline
         $payload['company_identity_mismatch'] = true;
 
         return $payload;
+    }
+
+    private function matchesCompanyName(string $companyName, string $printedName): bool
+    {
+        $normalize = fn (string $name): string => trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtoupper($name)) ?? '');
+        $companyIdentity = $normalize($companyName);
+        if ($companyIdentity === $normalize($printedName)) {
+            return true;
+        }
+
+        // Bills may append a short branch code to the registered buyer name, e.g. (SDK).
+        return preg_match('/^(.+?)\s*\([A-Z]{2,5}\)$/u', trim($printedName), $match) === 1
+            && $companyIdentity === $normalize($match[1]);
     }
 
     /** @param list<array<string, mixed>> $accounts */

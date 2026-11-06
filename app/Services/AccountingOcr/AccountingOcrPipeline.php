@@ -47,6 +47,7 @@ class AccountingOcrPipeline
         $payload = $this->client->extract($content, $mime, $accounts, $companyContext, $context);
         $payload = $this->resolveDocumentPerspective($payload, $companyContext);
         $payload = $this->retryBuyerSideCreditNoteProposal($payload, $content, $mime, $accounts, $companyContext, $context, $requestId);
+        $payload = (new BankTransferAdvice)->normalize($payload, $content, $mime, $accounts, $companyContext);
         $payload = (new PaymentEvidenceAssessment)->normalize($payload);
         $transactionCount = max(0, (int) ($payload['transaction_count'] ?? 0));
         if ($transactionCount > 1) {
@@ -79,7 +80,10 @@ class AccountingOcrPipeline
             $errors[] = $this->issue('journal_entry', 'journal_proposal_missing', 'The document was read, but a reliable journal entry could not be proposed. Arkcloudant must review the document and accounting treatment.');
         }
         if (($payload['company_identity_mismatch'] ?? false) === true) {
-            $warnings[] = $this->issue('document_direction', 'document_party_mismatch', 'The bookkeeping company matches neither printed party; confirm the document perspective before posting.');
+            $message = ($payload['bank_transfer_advice'] ?? false) === true
+                ? 'The bookkeeping company matches neither transfer party (From Account: '.($payload['bank_transfer_payer'] ?? 'unknown').'; Beneficiary Account: '.($payload['bank_transfer_beneficiary'] ?? 'unknown').'); confirm the document perspective before posting.'
+                : 'The bookkeeping company matches neither printed party; confirm the document perspective before posting.';
+            $warnings[] = $this->issue('document_direction', 'document_party_mismatch', $message);
         }
         if (($payload['document_perspective_conflict'] ?? false) === true && $hasJournalLines) {
             $errors[] = $this->issue('document_direction', 'document_perspective_conflict', 'The proposed journal direction conflicts with the bookkeeping company named on the document. Review the treatment before posting.');
@@ -258,8 +262,9 @@ class AccountingOcrPipeline
         $sourceLines = $journalLines;
         $journalLines = (new JournalConsolidator)->consolidate($journalLines);
 
-        $requiresReview = $hasUnmatched || $errors !== [] || $warnings !== [];
-        $isPostable = $isBalanced && ! $requiresReview;
+        $reviewWarnings = array_filter($warnings, fn (array $warning): bool => $warning['code'] !== 'posting_date_required');
+        $requiresReview = $hasUnmatched || $errors !== [] || $reviewWarnings !== [];
+        $isPostable = $isBalanced && ! $requiresReview && $this->stringOrNull($context['posting_date'] ?? null) !== null;
         $usage = $this->usageEstimator->estimate(1, is_array($payload['usage'] ?? null) ? $payload['usage'] : null, 'gemini');
 
         Log::info('accounting_ocr_processed', [
@@ -319,6 +324,9 @@ class AccountingOcrPipeline
 
     private function routingDocumentKind(array $payload): string
     {
+        if (($payload['bank_transfer_advice'] ?? false) === true) {
+            return 'receipt';
+        }
         $kind = $payload['routing_document_kind'] ?? 'unknown';
         $direction = $payload['document_direction'] ?? 'unknown';
         $status = $payload['payment_status'] ?? 'unknown';

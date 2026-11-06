@@ -1,0 +1,62 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1638 >>
+stream
+BT /F1 10 Tf 40 805 Td (Transaction Approval) Tj ET
+BT /F1 10 Tf 40 781 Td (Printed Date/Time: 15 Oct 2026 17:12:15) Tj ET
+BT /F1 10 Tf 40 757 Td (Reference No. : 2601010000000001) Tj ET
+BT /F1 10 Tf 40 733 Td (Service Reference No. : 123456) Tj ET
+BT /F1 10 Tf 40 709 Td (Note: This is a computer generated receipt and no signature is required.) Tj ET
+BT /F1 10 Tf 40 685 Td (Copyright 2026 Example Bank Berhad 123456789. All Rights Reserved.) Tj ET
+BT /F1 10 Tf 40 661 Td (Transaction Details) Tj ET
+BT /F1 10 Tf 40 637 Td (Product Type) Tj ET
+BT /F1 10 Tf 40 613 Td (Reference No) Tj ET
+BT /F1 10 Tf 40 589 Td (Service Reference No) Tj ET
+BT /F1 10 Tf 40 565 Td (Approval Status) Tj ET
+BT /F1 10 Tf 40 541 Td (From Account) Tj ET
+BT /F1 10 Tf 40 517 Td (Transfer Mode) Tj ET
+BT /F1 10 Tf 40 493 Td (Favourite Name) Tj ET
+BT /F1 10 Tf 40 469 Td (Beneficiary Account) Tj ET
+BT /F1 10 Tf 40 445 Td (Recipient Reference) Tj ET
+BT /F1 10 Tf 40 421 Td (Other Payment Details) Tj ET
+BT /F1 10 Tf 40 397 Td (Amount) Tj ET
+BT /F1 10 Tf 40 373 Td (Payment Date) Tj ET
+BT /F1 10 Tf 40 349 Td (Other PB Account) Tj ET
+BT /F1 10 Tf 40 325 Td (2601010000000001) Tj ET
+BT /F1 10 Tf 40 301 Td (123456) Tj ET
+BT /F1 10 Tf 40 277 Td (Success) Tj ET
+BT /F1 10 Tf 40 253 Td (1234567890 / ACME CUSTOMER SDN BHD) Tj ET
+BT /F1 10 Tf 40 229 Td (Favourite Account Transfer) Tj ET
+BT /F1 10 Tf 40 205 Td (Demo Company) Tj ET
+BT /F1 10 Tf 40 181 Td (0987654321 / DEMO COMPANY PLT) Tj ET
+BT /F1 10 Tf 40 157 Td (Payment ref Q1) Tj ET
+BT /F1 10 Tf 40 133 Td (Payment ref Q1) Tj ET
+BT /F1 10 Tf 40 109 Td (MYR 100.00) Tj ET
+BT /F1 10 Tf 40 85 Td (15-Oct-2026) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2001
+%%EOF

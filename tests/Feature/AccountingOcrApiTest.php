@@ -9,6 +9,60 @@ use Tests\TestCase;
 
 class AccountingOcrApiTest extends TestCase
 {
+    public function test_bank_transfer_advice_uses_printed_parties_and_supplied_ledgers_on_rescan(): void
+    {
+        $accounts = [
+            ['code' => 'BS/CA/CNB/BANK/10000', 'name' => 'CASH AT BANK', 'type' => 'asset', 'subtype' => 'bank'],
+            ['code' => 'BS/CA/TRV/TRDB/10000', 'name' => 'ACME CUSTOMER SDN BHD', 'type' => 'asset', 'subtype' => 'trade_receivable'],
+        ];
+        $results = [];
+        foreach (['Example Bank Berhad', 'ACME CUSTOMER SDN BHD'] as $modelParty) {
+            $model = $this->payload();
+            $model['document_kind'] = 'receipt';
+            $model['routing_document_kind'] = 'unknown';
+            $model['buyer_name'] = 'DEMO COMPANY PLT';
+            $model['issuer_name'] = $modelParty;
+            $model['counterparty'] = $modelParty;
+            $model['service_periods'] = [[
+                'description' => 'Payment ref Q1', 'amount' => 100.00,
+                'start_date' => null, 'end_date' => null, 'period_kind' => 'unknown',
+                'evidence' => 'Payment ref Q1', 'prepayment_candidate' => true,
+            ]];
+            $this->app->bind(AccountingOcrClient::class, fn () => new class($model) implements AccountingOcrClient
+            {
+                public function __construct(private readonly array $model) {}
+
+                public function extract(string $documentContent, string $mimeType, array $accounts, ?string $companyContext = null, array $context = []): array
+                {
+                    return $this->model;
+                }
+            });
+            $file = new UploadedFile(base_path('tests/Fixtures/receipts/bank-transfer-approval.pdf'), 'bank-transfer-approval.pdf', 'application/pdf', null, true);
+            $response = $this->post('/api/ocr/accounting', [
+                'document' => $file, 'company' => ['name' => 'DEMO COMPANY PLT'], 'accounts' => $accounts,
+            ], ['Accept' => 'application/json'])->assertOk()
+                ->assertJsonPath('data.extracted.counterparty', 'ACME CUSTOMER SDN BHD')
+                ->assertJsonPath('data.extracted.buyer_name', null)
+                ->assertJsonPath('data.extracted.issuer_name', 'Example Bank Berhad')
+                ->assertJsonPath('data.extracted.total', 100.00)
+                ->assertJsonPath('data.extracted.reference_number', '2601010000000001')
+                ->assertJsonPath('data.extracted.transaction_date', '2026-10-15')
+                ->assertJsonPath('data.extracted.source_document_kind', 'receipt')
+                ->assertJsonPath('data.classification.document_kind', 'receipt')
+                ->assertJsonPath('data.classification.voucher_type', 'receipt_voucher')
+                ->assertJsonPath('data.journal_entry.lines.0.account_code', 'BS/CA/CNB/BANK/10000')
+                ->assertJsonPath('data.journal_entry.lines.1.account_code', 'BS/CA/TRV/TRDB/10000')
+                ->assertJsonPath('data.journal_entry.lines.1.account_name', 'ACME CUSTOMER SDN BHD')
+                ->assertJsonPath('data.journal_entry.lines.1.recommendation', null)
+                ->assertJsonPath('validation.requires_manual_review', false)
+                ->assertJsonPath('validation.is_postable', false)
+                ->assertJsonPath('validation.errors', []);
+            $this->assertSame(['posting_date_required'], array_column($response->json('validation.warnings'), 'code'));
+            $results[] = $response->json();
+        }
+        $this->assertSame($results[0], $results[1]);
+    }
+
     private function payload(): array
     {
         return [
